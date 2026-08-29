@@ -50,6 +50,20 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # Swift Package Manager (SPM) is Flutter's new, still-maturing way of
+  # resolving native iOS/macOS plugin dependencies, replacing CocoaPods. This
+  # project's ios/Podfile still integrates plugins via CocoaPods while
+  # Flutter simultaneously treats camera_avfoundation as a Swift Package,
+  # and having both active for the same target confuses Xcode's module
+  # resolution — the AVFoundation system framework ends up not visible the
+  # way camera_avfoundation's Swift sources expect, producing "Type
+  # 'AVCaptureSession' has no member ..." compiler errors even though that
+  # code is valid, unmodified upstream Flutter code. Forcing everything
+  # through the well-established CocoaPods path avoids the conflict. See:
+  # https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers
+  config:
+    enable-swift-package-manager: false
+
   assets:
     - assets/images/
     - assets/icons/
