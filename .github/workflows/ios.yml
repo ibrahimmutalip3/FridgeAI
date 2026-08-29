@@ -54,13 +54,20 @@ jobs:
         working-directory: fridge_ai
         run: dart run flutter_launcher_icons
 
-      # 7. Install iOS CocoaPods dependencies
-      - name: Install CocoaPods dependencies
-        working-directory: fridge_ai/ios
-        run: |
-          pod install --repo-update
+      # NOTE: There is deliberately no separate "pod install" step here.
+      # `flutter build ios` below runs CocoaPods integration itself, at the
+      # point where Flutter has fully finished writing
+      # ios/Flutter/Generated.xcconfig and the plugin list CocoaPods reads
+      # via `flutter_install_all_ios_pods` in the Podfile. Running
+      # `pod install` manually as an earlier, separate step raced against
+      # that and intermittently produced an incomplete Pods install (e.g.
+      # missing path_provider_foundation), causing
+      # "no such module 'path_provider_foundation'" in
+      # GeneratedPluginRegistrant.swift even though `flutter pub get`
+      # resolved the package correctly. Let `flutter build ios` own the
+      # entire pod install step instead of pre-empting it.
 
-      # 8. Build unsigned iOS application
+      # 7. Build unsigned iOS application
       - name: Build unsigned iOS app
         working-directory: fridge_ai
         env:
@@ -85,7 +92,7 @@ jobs:
           echo "Flutter iOS build finished successfully"
           echo "========================================"
 
-      # 9. Check that Runner.app was created
+      # 8. Check that Runner.app was created
       - name: Check build output
         working-directory: fridge_ai
         run: |
@@ -100,7 +107,7 @@ jobs:
 
           echo "Runner.app found successfully!"
 
-      # 10. Create unsigned IPA
+      # 9. Create unsigned IPA
       - name: Package unsigned IPA
         working-directory: fridge_ai
         run: |
@@ -136,7 +143,7 @@ jobs:
 
           ls -lh "$IPA_NAME"
 
-      # 11. Upload IPA to GitHub Actions artifacts
+      # 10. Upload IPA to GitHub Actions artifacts
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
