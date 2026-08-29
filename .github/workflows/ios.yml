@@ -19,15 +19,31 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            fridge_ai/.dart_tool
-          key: ${{ runner.os }}-pub-${{ hashFiles('fridge_ai/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+      # NOTE: deliberately NOT caching fridge_ai/.dart_tool here (unlike a
+      # naive pub-cache setup might). actions/cache's `restore-keys` fallback
+      # means that if the exact pubspec.lock-keyed cache entry isn't found,
+      # it silently restores the *most recent* cache under the `macOS-pub-`
+      # prefix instead — i.e. potentially a `.dart_tool` snapshot from a
+      # different commit/dependency set than the one just checked out. Flutter's
+      # iOS build step (`xcode_backend.sh`) reads `.dart_tool/package_config.json`
+      # and `.flutter-plugins-dependencies` to decide what to (re)generate,
+      # including `ios/Runner/GeneratedPluginRegistrant.swift` — a stale,
+      # mismatched `.dart_tool` here can make it skip regenerating that file,
+      # so Xcode then fails with "Error opening input file
+      # .../GeneratedPluginRegistrant.swift (No such file or directory)"
+      # even though the build otherwise looks fine. `subosito/flutter-action`'s
+      # own `cache: true` above already caches the Flutter SDK itself safely
+      # (keyed by SDK version, not project state), so no extra caching is
+      # needed here — `flutter pub get` re-resolving packages from the pub
+      # cache each run is fast and, more importantly, correct.
+
+      # Belt-and-braces: explicitly wipe any leftover build/, .dart_tool/,
+      # and ios/Flutter/ephemeral/ state before installing dependencies, so
+      # every build starts from a known-clean slate and always regenerates
+      # GeneratedPluginRegistrant.swift, Generated.xcconfig, etc. fresh.
+      - name: Clean
+        working-directory: fridge_ai
+        run: flutter clean
 
       - name: Install dependencies
         working-directory: fridge_ai
@@ -64,7 +80,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
-          flutter build ios --release --no-codesign \
+          flutter build ios --release --no-codesign -v \
             --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
             --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY"
 

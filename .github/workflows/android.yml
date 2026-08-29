@@ -30,15 +30,18 @@ jobs:
         with:
           gradle-version: '8.14'
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            fridge_ai/.dart_tool
-          key: ${{ runner.os }}-pub-${{ hashFiles('fridge_ai/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+      # NOTE: deliberately NOT caching fridge_ai/.dart_tool (see the iOS
+      # workflow for the full explanation) — actions/cache's `restore-keys`
+      # fallback can silently restore a `.dart_tool` snapshot from an older
+      # commit/dependency set when the exact pubspec.lock-keyed entry misses,
+      # which can make Flutter's build tooling skip regenerating
+      # project-state-derived files it should regenerate fresh every run.
+      # `subosito/flutter-action`'s own `cache: true` above already caches
+      # the Flutter SDK itself safely (keyed by SDK version, not project
+      # state).
+      - name: Clean
+        working-directory: fridge_ai
+        run: flutter clean
 
       - name: Install dependencies
         working-directory: fridge_ai
