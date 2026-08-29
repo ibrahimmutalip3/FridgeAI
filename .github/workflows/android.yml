@@ -28,7 +28,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.14'
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
@@ -65,7 +65,7 @@ jobs:
       - name: Regenerate Gradle wrapper
         working-directory: fridge_ai/android
         run: |
-          gradle wrapper --gradle-version 8.9
+          gradle wrapper --gradle-version 8.14
           ls -la gradle/wrapper/
           test -s gradle/wrapper/gradle-wrapper.jar
 

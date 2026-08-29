@@ -19,7 +19,7 @@ dependencies:
   go_router: ^14.2.0
 
   # Camera & images
-  camera: ^0.11.0+2
+  camera: ^0.11.4
   image_picker: ^1.1.2
   permission_handler: ^11.3.1
   cached_network_image: ^3.4.1
@@ -64,3 +64,12 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   adaptive_icon_background: "#F3A468"
   adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+
+# Pins the iOS camera implementation to a version whose Swift code no longer
+# references AVCaptureSession.wasInterruptedNotification /
+# runtimeErrorNotification the way 0.9.23+2 (pulled in by camera ^0.11.0+2)
+# did. Newer Xcode/iOS SDKs on the CI runners no longer expose those as
+# static members the same way, which broke the iOS build. Remove this
+# override once the `camera` package's own constraint moves past 0.10.x.
+dependency_overrides:
+  camera_avfoundation: ^0.10.2
