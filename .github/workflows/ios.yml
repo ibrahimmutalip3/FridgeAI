@@ -54,13 +54,36 @@ jobs:
         working-directory: fridge_ai
         run: dart run flutter_launcher_icons
 
-      # 7. Install iOS CocoaPods dependencies
+      # 7. Generate iOS platform files (GeneratedPluginRegistrant.swift, the
+      # Flutter.podspec, Generated.xcconfig, etc.) explicitly, before running
+      # CocoaPods or the full Xcode build.
+      #
+      # Background: `flutter build ios` normally generates these files itself,
+      # via a "Run Script" build phase that Xcode invokes mid-build. In
+      # practice that phase can be skipped/reordered by Xcode's dependency
+      # analysis, silently leaving `ios/Runner/GeneratedPluginRegistrant.swift`
+      # missing on disk even though the Xcode project references it as a
+      # source file — which fails the build with:
+      #   "error opening input file '.../Runner/GeneratedPluginRegistrant.swift'
+      #    (No such file or directory)"
+      # Running `--config-only` first forces Flutter's own build system
+      # (rather than Xcode) to generate that file up front, so it's
+      # guaranteed to exist by the time Xcode compiles Runner.
+      - name: Generate iOS platform files
+        working-directory: fridge_ai
+        run: |
+          flutter build ios --release --no-codesign --config-only -v
+          echo "Verifying GeneratedPluginRegistrant.swift was created..."
+          test -f ios/Runner/GeneratedPluginRegistrant.swift
+          echo "OK: $(wc -l < ios/Runner/GeneratedPluginRegistrant.swift) lines"
+
+      # 8. Install iOS CocoaPods dependencies
       - name: Install CocoaPods dependencies
         working-directory: fridge_ai/ios
         run: |
           pod install --repo-update
 
-      # 8. Build unsigned iOS application
+      # 9. Build unsigned iOS application
       - name: Build unsigned iOS app
         working-directory: fridge_ai
         env:
@@ -85,7 +108,7 @@ jobs:
           echo "Flutter iOS build finished successfully"
           echo "========================================"
 
-      # 9. Check that Runner.app was created
+      # 10. Check that Runner.app was created
       - name: Check build output
         working-directory: fridge_ai
         run: |
@@ -100,7 +123,7 @@ jobs:
 
           echo "Runner.app found successfully!"
 
-      # 10. Create unsigned IPA
+      # 11. Create unsigned IPA
       - name: Package unsigned IPA
         working-directory: fridge_ai
         run: |
@@ -136,7 +159,7 @@ jobs:
 
           ls -lh "$IPA_NAME"
 
-      # 11. Upload IPA to GitHub Actions artifacts
+      # 12. Upload IPA to GitHub Actions artifacts
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
