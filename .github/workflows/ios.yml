@@ -17,9 +17,16 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Install Flutter
+      # Pinned to an exact version (rather than just `channel: stable`) so a
+      # new Flutter stable release can't silently change build behavior/
+      # requirements (e.g. Flutter 3.47 raised the minimum iOS deployment
+      # target from 13.0 to 15.0, which broke this workflow when it was
+      # tracking `stable` unpinned). Bump deliberately and re-test iOS/
+      # Android builds when you want to move to a newer version.
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.2'
           channel: stable
           cache: true
 

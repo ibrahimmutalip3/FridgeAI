@@ -1,5 +1,11 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '13.0'
+# NOTE: Flutter 3.47 raised its own minimum supported iOS version from 13.0
+# to 15.0 (to prepare for Xcode 27 / iOS 27). Building with Flutter 3.47+
+# while this is set below 15.0 makes CocoaPods fail with:
+#   "CocoaPods could not find compatible versions for pod \"Flutter\": ...
+#    required a higher minimum deployment target."
+# Keep this in sync with IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
