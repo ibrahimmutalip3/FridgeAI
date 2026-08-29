@@ -93,7 +93,7 @@ class IngredientResultsScreen extends ConsumerWidget {
                     ),
                   )
                 : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       AppSpacing.lg,
                       kToolbarHeight + AppSpacing.md,
                       AppSpacing.lg,
