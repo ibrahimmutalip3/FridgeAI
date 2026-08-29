@@ -70,15 +70,31 @@ flutter:
     - assets/icons/
 
 # Generates Android + iOS launcher icons from a single 1024x1024 source
-# image. Run with: flutter pub run flutter_launcher_icons
+# image (assets/icons/app_icon.png), which already contains the full
+# orange gradient background baked in. Run with:
+#   flutter pub run flutter_launcher_icons
 # (the CI workflows run this automatically before building).
+#
+# IMPORTANT: do NOT split this into a separate flat-color
+# adaptive_icon_background + cutout adaptive_icon_foreground — that loses
+# the gradient. adaptive_icon_background points at the same full image (so
+# the Android adaptive icon shows the exact gradient, masked to shape), and
+# the foreground is left fully transparent so the logo isn't drawn twice.
+#
+# NOTE: the actual committed PNGs under android/app/src/main/res/mipmap-*
+# and ios/Runner/Assets.xcassets/AppIcon.appiconset were generated directly
+# from assets/icons/app_icon.png (see tools/generate_app_icons.py) and
+# checked into git, so the app icon does NOT depend on this step running in
+# CI. Re-run `dart run flutter_launcher_icons` (or the script) only if you
+# replace app_icon.png with a new design.
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icons/app_icon.png"
   remove_alpha_ios: true
-  adaptive_icon_background: "#F3A468"
-  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  adaptive_icon_background: "assets/icons/app_icon.png"
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
+  adaptive_icon_foreground_inset: 0
 
 # Pins the iOS camera implementation to a version whose Swift code no longer
 # references AVCaptureSession.wasInterruptedNotification /

@@ -18,12 +18,35 @@ class GroqConfig {
   /// Vision-capable model used for analyzing food/fridge/grocery photos.
   /// Centralized here so it can be changed in one place if Groq updates
   /// their vision model lineup.
-  static const String visionModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  ///
+  /// NOTE: `meta-llama/llama-4-scout-17b-16e-instruct` (the previous value
+  /// here) was deprecated by Groq on 07/17/2026 and now returns a
+  /// `model_decommissioned` error for every request — which is exactly why
+  /// every scan was failing with "I couldn't spot any food in that photo."
+  /// regardless of how clear the picture was. `qwen/qwen3.6-27b` is Groq's
+  /// current recommended replacement and is one of only two models Groq
+  /// currently lists as vision-capable at all (see
+  /// https://console.groq.com/docs/vision and
+  /// https://console.groq.com/docs/deprecations). If Groq deprecates this
+  /// one too, check those two pages again before picking a replacement —
+  /// not every Groq model accepts image input.
+  ///
+  /// Also note: Groq currently serves this as a preview model, meaning it
+  /// can be pulled with little/no notice (unlike production models, which
+  /// get an announced deprecation window). If scans suddenly start failing
+  /// again with an API error (not "no food found"), check
+  /// https://console.groq.com/docs/vision first for a replacement model ID
+  /// before assuming the bug is in this app's code.
+  static const String visionModel = 'qwen/qwen3.6-27b';
 
   /// Text model used for recipe generation from a confirmed ingredient list.
   /// A capable, fast instruction-following model is sufficient since no
   /// image understanding is required at this stage.
-  static const String textModel = 'llama-3.3-70b-versatile';
+  ///
+  /// NOTE: `llama-3.3-70b-versatile` (the previous value here) was
+  /// deprecated by Groq on 08/16/2026. `openai/gpt-oss-120b` is Groq's
+  /// current recommended replacement.
+  static const String textModel = 'openai/gpt-oss-120b';
 
   static const int maxTokensVision = 2048;
   static const int maxTokensRecipes = 4096;

@@ -54,6 +54,16 @@ class GroqService {
       'max_tokens': GroqConfig.maxTokensVision,
       'temperature': 0.2,
       'response_format': {'type': 'json_object'},
+      // qwen3.6-27b is a "thinking" model by default (reasoning_effort
+      // defaults to "default", i.e. thinking mode ON). Left alone, it
+      // prepends a <think>...</think> block to its output before the JSON,
+      // which _tryDecodeJsonObject would otherwise have to fish the JSON
+      // out of. "none" fully disables reasoning for the qwen3 family (per
+      // Groq's docs), and reasoning_format "hidden" is a second safety net
+      // in case a future model swap here still reasons — either way we
+      // want only the final JSON in `content`.
+      'reasoning_effort': 'none',
+      'reasoning_format': 'hidden',
       'messages': [
         {
           'role': 'system',
@@ -128,6 +138,13 @@ class GroqService {
       'max_tokens': GroqConfig.maxTokensRecipes,
       'temperature': 0.6,
       'response_format': {'type': 'json_object'},
+      // openai/gpt-oss-120b always reasons internally (its reasoning can't
+      // be disabled, only tuned via reasoning_effort low/medium/high) and
+      // by default surfaces that reasoning as part of the response.
+      // "hidden" keeps `content` limited to the final answer so it stays
+      // pure JSON for _tryDecodeJsonObject.
+      'reasoning_effort': 'low',
+      'reasoning_format': 'hidden',
       'messages': [
         {'role': 'system', 'content': _recipeSystemPrompt},
         {'role': 'user', 'content': userPrompt},
@@ -294,6 +311,11 @@ class GroqService {
   Map<String, dynamic>? _tryDecodeJsonObject(String raw) {
     var text = raw.trim();
 
+    // Defense in depth: if a reasoning model's <think>...</think> block
+    // ever leaks into `content` (e.g. a future Groq default change),
+    // strip it before parsing rather than letting it break JSON decoding.
+    text = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false), '').trim();
+
     // Strip Markdown code fences if present (```json ... ``` or ``` ... ```)
     if (text.startsWith('```')) {
       text = text.replaceFirst(RegExp(r'^```[a-zA-Z]*\n?'), '');
@@ -329,8 +351,9 @@ class GroqService {
   ///
   /// Photos taken via the in-app camera (scanner_screen.dart uses
   /// `ResolutionPreset.high` with no compression) can be several megabytes
-  /// at full resolution. Groq's vision endpoint enforces a request size
-  /// limit on base64-embedded images, and very large/high-resolution
+  /// at full resolution. Groq's vision endpoint enforces a 20MB request
+  /// size limit on base64-embedded images (qwen/qwen3.6-27b, see
+  /// https://console.groq.com/docs/vision), and very large/high-resolution
   /// photos were intermittently rejected or failed to yield any detected
   /// ingredients — surfacing to the user as "I couldn't spot any food in
   /// that photo" even for a perfectly clear picture, often requiring
