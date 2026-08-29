@@ -75,11 +75,13 @@ flutter:
 #   flutter pub run flutter_launcher_icons
 # (the CI workflows run this automatically before building).
 #
-# IMPORTANT: do NOT split this into a separate flat-color
-# adaptive_icon_background + cutout adaptive_icon_foreground — that loses
-# the gradient. adaptive_icon_background points at the same full image (so
-# the Android adaptive icon shows the exact gradient, masked to shape), and
-# the foreground is left fully transparent so the logo isn't drawn twice.
+# IMPORTANT: Android gets a single flat icon only (no adaptive icon). No
+# adaptive_icon_background / adaptive_icon_foreground keys here on purpose —
+# adding them makes flutter_launcher_icons emit ic_launcher_background.png +
+# ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml alongside
+# ic_launcher.png in every mipmap-* folder. A single ic_launcher.png per
+# density is simpler and still displays correctly (masked to the device's
+# icon shape) on every Android version.
 #
 # NOTE: the actual committed PNGs under android/app/src/main/res/mipmap-*
 # and ios/Runner/Assets.xcassets/AppIcon.appiconset were generated directly
@@ -92,9 +94,6 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icons/app_icon.png"
   remove_alpha_ios: true
-  adaptive_icon_background: "assets/icons/app_icon.png"
-  adaptive_icon_foreground: "assets/icons/app_icon.png"
-  adaptive_icon_foreground_inset: 0
 
 # Pins the iOS camera implementation to a version whose Swift code no longer
 # references AVCaptureSession.wasInterruptedNotification /

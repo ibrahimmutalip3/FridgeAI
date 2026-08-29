@@ -69,16 +69,26 @@ jobs:
           ls -la gradle/wrapper/
           test -s gradle/wrapper/gradle-wrapper.jar
 
-      # The GROQ_API_KEY secret is injected only as a build-time --dart-define
-      # value baked into the compiled app via String.fromEnvironment. It is
-      # never echoed, printed, or written to a file, so it never appears in
-      # the workflow logs.
+      # The GROQ_API_KEY and UNSPLASH_ACCESS_KEY secrets are injected only as
+      # build-time --dart-define values baked into the compiled app via
+      # String.fromEnvironment. They are never echoed, printed, or written
+      # to a file, so they never appear in the workflow logs.
+      #
+      # UNSPLASH_ACCESS_KEY is optional: if it isn't set as a repo secret,
+      # this still builds fine — RecipeImageResolver just skips the network
+      # photo lookup and every recipe uses its bundled local placeholder
+      # image instead (see lib/services/recipe_image_resolver.dart). Add a
+      # free Unsplash "Demo" Access Key at
+      # https://unsplash.com/oauth/applications to get real recipe photos.
       - name: Build release APK
         working-directory: fridge_ai
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
-          flutter build apk --release --dart-define=GROQ_API_KEY="$GROQ_API_KEY"
+          flutter build apk --release \
+            --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
+            --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY"
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4

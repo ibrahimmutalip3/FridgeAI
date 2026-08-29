@@ -1,20 +1,36 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import '../core/constants/unsplash_config.dart';
 import '../models/ingredient.dart';
 import '../models/recipe.dart';
 
-/// FridgeAI has no custom backend and no paid image-generation API key, so
-/// this resolver is the single source of truth for turning a [Recipe] or
-/// [Ingredient] into a concrete image reference:
+/// FridgeAI has no custom backend, so this resolver is the single source of
+/// truth for turning a [Recipe] or [Ingredient] into a concrete image
+/// reference:
 ///
-///  - Every recipe gets a real-photo [networkUrlForQuery] built from the
-///    short image search phrase the AI returns alongside the recipe
-///    (`recipe.imageQuery`, e.g. "creamy chicken rice bowl"). This is
-///    resolved through Unsplash Source, a keyless endpoint that redirects a
-///    plain search phrase straight to a matching real photo — no API key,
-///    no account, no backend of ours involved.
+///  - Every recipe gets a real-photo URL by searching the Unsplash API
+///    (https://api.unsplash.com/search/photos) for the short image search
+///    phrase the AI returns alongside the recipe (`recipe.imageQuery`, e.g.
+///    "creamy chicken rice bowl") and reading the first result's photo URL
+///    back out of the JSON response — see [urlForQuery] / [urlForRecipe].
+///
+///    NOTE: this previously hotlinked `source.unsplash.com` directly, which
+///    needed no key and no HTTP round trip of its own (it just redirected
+///    straight to a matching photo). That endpoint has been fully shut down
+///    by Unsplash — every request to it fails — which is exactly why every
+///    recipe was silently falling back to a local placeholder. The real
+///    Unsplash Search API used here is still fully supported, but requires
+///    an Access Key ([UnsplashConfig.accessKey], injected at build time —
+///    see unsplash_config.dart) and returns JSON rather than an image
+///    redirect, so resolving a photo is now an async network call instead
+///    of a synchronous string build.
 ///  - `FallbackImage` (see core/widgets/fallback_image.dart) tries that
 ///    network photo first and, only if it fails to load (offline, endpoint
-///    hiccup, etc.), falls back to a bundled local placeholder chosen from
-///    [tags]/[category]/name keywords, so the UI never shows a broken image.
+///    hiccup, no key configured, etc.), falls back to a bundled local
+///    placeholder chosen from [tags]/[category]/name keywords, so the UI
+///    never shows a broken image.
 ///
 /// Centralizing this logic means the image source can be swapped later
 /// (e.g. a different photo API, or real AI image generation once a paid key
@@ -24,38 +40,98 @@ class RecipeImageResolver {
 
   static const String _basePath = 'assets/images';
 
-  // Keyless real-photo endpoint. Appending a plain-text query redirects to a
-  // matching photo — e.g. https://source.unsplash.com/800x600/?pasta,tomato.
-  // No account or API key required, which fits this project's "no backend,
-  // no secrets beyond GROQ_API_KEY" constraint.
-  static const String _unsplashSourceBase = 'https://source.unsplash.com';
+  /// In-memory cache from search phrase -> resolved photo URL (or null if
+  /// the search came back empty), so re-rendering the same recipe/session
+  /// never re-hits the network or the Unsplash rate limit for a query
+  /// that's already been resolved once.
+  static final Map<String, String?> _cache = {};
 
-  /// Builds a real-photo URL for a short search phrase (spaces become
-  /// commas, since Unsplash Source treats commas as separate search terms
-  /// and ANDs them together for a more specific match). A [seed] keeps the
-  /// same recipe pinned to the same photo across rebuilds instead of a new
-  /// random one on every request, while still varying between recipes that
-  /// share a query.
-  static String networkUrlForQuery(String query, {String? seed}) {
+  /// Searches Unsplash for a real photo matching [query] and returns a
+  /// ready-to-display image URL, or an empty string if nothing usable came
+  /// back (no API key configured, offline, no results, request failed).
+  /// [FallbackImage] treats an empty string exactly like "no network URL"
+  /// and shows the local placeholder instead — this method never throws.
+  ///
+  /// [accessKey] defaults to [UnsplashConfig.accessKey] (the real
+  /// build-time key). Tests pass a fake key here directly, since
+  /// `String.fromEnvironment` is fixed at compile time and `flutter test`
+  /// doesn't receive the `--dart-define` the real app is built with.
+  static Future<String> urlForQuery(
+    String query, {
+    http.Client? client,
+    String accessKey = UnsplashConfig.accessKey,
+  }) async {
     final cleaned = query.trim();
     if (cleaned.isEmpty) return '';
-    final terms = cleaned
-        .toLowerCase()
-        .split(RegExp(r'[\s,]+'))
-        .where((t) => t.isNotEmpty)
-        .take(4)
-        .join(',');
-    final sig = seed != null && seed.isNotEmpty ? '&sig=${seed.hashCode}' : '';
-    return '$_unsplashSourceBase/800x600/?$terms$sig';
+    if (accessKey.isEmpty) return '';
+
+    if (_cache.containsKey(cleaned)) {
+      return _cache[cleaned] ?? '';
+    }
+
+    final ownClient = client == null;
+    final httpClient = client ?? http.Client();
+    try {
+      final uri = Uri.parse(UnsplashConfig.searchPhotosEndpoint).replace(
+        queryParameters: {
+          'query': cleaned,
+          'per_page': '1',
+          'orientation': 'landscape',
+        },
+      );
+
+      final response = await httpClient
+          .get(uri, headers: {'Authorization': 'Client-ID $accessKey'})
+          .timeout(UnsplashConfig.requestTimeout);
+
+      if (response.statusCode != 200) {
+        _cache[cleaned] = null;
+        return '';
+      }
+
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map || decoded['results'] is! List) {
+        _cache[cleaned] = null;
+        return '';
+      }
+
+      final results = decoded['results'] as List;
+      if (results.isEmpty) {
+        _cache[cleaned] = null;
+        return '';
+      }
+
+      final first = results.first;
+      if (first is! Map) {
+        _cache[cleaned] = null;
+        return '';
+      }
+
+      final urls = first['urls'];
+      final url = (urls is Map ? urls['regular'] ?? urls['small'] : null) as String?;
+      _cache[cleaned] = url;
+      return url ?? '';
+    } catch (_) {
+      // Network error, timeout, malformed JSON, etc. — never let a bad
+      // photo lookup break recipe generation; just fall back silently.
+      return '';
+    } finally {
+      if (ownClient) httpClient.close();
+    }
   }
 
   /// The real-photo URL for a given [Recipe], derived from its AI-provided
   /// [Recipe.imageQuery] (falling back to the title if that's empty).
-  /// Returns an empty string if there's nothing usable to search for, in
-  /// which case [FallbackImage] skips straight to the local placeholder.
-  static String networkUrlForRecipe(Recipe recipe) {
+  /// Returns an empty string if there's nothing usable to search for or
+  /// the lookup fails, in which case [FallbackImage] skips straight to the
+  /// local placeholder.
+  static Future<String> urlForRecipe(
+    Recipe recipe, {
+    http.Client? client,
+    String accessKey = UnsplashConfig.accessKey,
+  }) {
     final query = (recipe.imageQuery?.trim().isNotEmpty ?? false) ? recipe.imageQuery!.trim() : recipe.title;
-    return networkUrlForQuery(query, seed: recipe.id);
+    return urlForQuery(query, client: client, accessKey: accessKey);
   }
 
   /// Bundled recipe/category placeholders. Keys are matched against the

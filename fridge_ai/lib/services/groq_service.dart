@@ -166,7 +166,7 @@ class GroqService {
 
     final availableNames = ingredients.map((i) => i.name.toLowerCase().trim()).toSet();
 
-    final recipes = <Recipe>[];
+    final parsedRecipes = <Recipe>[];
     for (final item in rawRecipes) {
       try {
         Map<String, dynamic>? recipeJson;
@@ -177,13 +177,19 @@ class GroqService {
         }
         if (recipeJson == null) continue;
 
-        final recipe = Recipe.fromAiJson(recipeJson);
-        recipes.add(_reconcileAvailability(recipe, availableNames));
+        parsedRecipes.add(Recipe.fromAiJson(recipeJson));
       } catch (_) {
         // A single malformed recipe must never take down the whole batch.
         continue;
       }
     }
+
+    // Resolve every recipe's photo in parallel rather than one-by-one, so
+    // a batch of (say) 5 recipes takes roughly one image lookup's worth of
+    // time instead of five sequential round trips.
+    final recipes = await Future.wait(
+      parsedRecipes.map((recipe) => _reconcileAvailability(recipe, availableNames)),
+    );
 
     return recipes;
   }
@@ -199,11 +205,12 @@ class GroqService {
   /// always trustworthy, regardless of what the model claimed.
   ///
   /// Also resolves a real-photo [Recipe.imageUrl] here (via
-  /// [RecipeImageResolver], no image API key required) so every recipe that
-  /// comes back from Groq already carries a genuine food photo instead of
-  /// only a local placeholder. `FallbackImage` still falls back to the
-  /// bundled placeholder automatically if this URL ever fails to load.
-  Recipe _reconcileAvailability(Recipe recipe, Set<String> availableNames) {
+  /// [RecipeImageResolver], which searches the Unsplash API) so every
+  /// recipe that comes back from Groq already carries a genuine food photo
+  /// instead of only a local placeholder. `FallbackImage` still falls back
+  /// to the bundled placeholder automatically if this URL is empty (e.g. no
+  /// Unsplash key configured) or ever fails to load.
+  Future<Recipe> _reconcileAvailability(Recipe recipe, Set<String> availableNames) async {
     final reconciled = recipe.ingredients.map((ri) {
       final isAvailable = availableNames.any(
         (owned) => owned.contains(ri.name.toLowerCase().trim()) ||
@@ -213,6 +220,8 @@ class GroqService {
           ? ri
           : (isAvailable ? ri.copyWithAvailable(true) : ri.copyWithAvailable(false));
     }).toList();
+
+    final imageUrl = await RecipeImageResolver.urlForRecipe(recipe);
 
     return Recipe(
       id: recipe.id,
@@ -225,7 +234,7 @@ class GroqService {
       steps: recipe.steps,
       tags: recipe.tags,
       imageQuery: recipe.imageQuery,
-      imageUrl: RecipeImageResolver.networkUrlForRecipe(recipe),
+      imageUrl: imageUrl,
       createdAt: recipe.createdAt,
     );
   }

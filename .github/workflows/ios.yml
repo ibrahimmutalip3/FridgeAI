@@ -47,15 +47,26 @@ jobs:
 
       # No Apple signing identity, certificate, or provisioning profile is
       # configured anywhere in this repo or workflow — --no-codesign builds a
-      # Runner.app that is not signed. The GROQ_API_KEY secret is only ever
-      # passed as a --dart-define build argument; it's never printed or
-      # written to a file, so it never appears in the workflow logs.
+      # Runner.app that is not signed. The GROQ_API_KEY and
+      # UNSPLASH_ACCESS_KEY secrets are only ever passed as --dart-define
+      # build arguments; they're never printed or written to a file, so
+      # they never appear in the workflow logs.
+      #
+      # UNSPLASH_ACCESS_KEY is optional: if it isn't set as a repo secret,
+      # this still builds fine — RecipeImageResolver just skips the network
+      # photo lookup and every recipe uses its bundled local placeholder
+      # image instead (see lib/services/recipe_image_resolver.dart). Add a
+      # free Unsplash "Demo" Access Key at
+      # https://unsplash.com/oauth/applications to get real recipe photos.
       - name: Build unsigned iOS app
         working-directory: fridge_ai
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
-          flutter build ios --release --no-codesign --dart-define=GROQ_API_KEY="$GROQ_API_KEY"
+          flutter build ios --release --no-codesign \
+            --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
+            --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY"
 
       # Package the unsigned Runner.app into a standard IPA folder layout
       # (Payload/Runner.app) so it can be re-signed locally (e.g. with ESign)

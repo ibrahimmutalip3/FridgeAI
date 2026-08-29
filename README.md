@@ -31,12 +31,20 @@ install is required to produce installable builds.
 2. Go to **Settings → Secrets and variables → Actions → New repository
    secret**.
 3. Add a secret named exactly `GROQ_API_KEY` with your Groq API key as the
-   value. Get a key at [console.groq.com](https://console.groq.com).
+   value. Get a key at [console.groq.com](https://console.groq.com). This one
+   is required — without it, ingredient scanning and recipe generation don't
+   work.
+4. *(Optional, for real recipe photos)* Add a second secret named exactly
+   `UNSPLASH_ACCESS_KEY` with a free Unsplash Access Key — get one at
+   [unsplash.com/oauth/applications](https://unsplash.com/oauth/applications)
+   (create an app, no approval wait for the free "Demo" tier: 50
+   requests/hour). If you skip this, the app still builds and runs fine —
+   every recipe just shows its bundled local placeholder image instead of a
+   real photo.
 
-That's it — no other configuration is needed. Both workflows also support
-**Actions → (workflow) → Run workflow** for a manual trigger
-(`workflow_dispatch`), in addition to running automatically on every push to
-`main`.
+Both workflows also support **Actions → (workflow) → Run workflow** for a
+manual trigger (`workflow_dispatch`), in addition to running automatically on
+every push to `main`.
 
 ## Getting the Android build
 
@@ -71,18 +79,26 @@ after the fact.
 - `lib/services/groq_service.dart` is the only place that talks to the Groq
   API — one call for vision-based ingredient detection, one for recipe
   generation from a confirmed ingredient list.
+- `lib/core/constants/unsplash_config.dart` / `lib/services/
+  recipe_image_resolver.dart` work the same way for recipe photos: they
+  search the real [Unsplash API](https://unsplash.com/developers) for each
+  recipe's AI-provided search phrase and read back a real photo URL, using
+  the `UNSPLASH_ACCESS_KEY` secret injected the same way as `GROQ_API_KEY`
+  above. This key is optional — see step 4 in **One-time setup**.
 
-Because the key ships inside the compiled app, it can technically be
+Because these keys ship inside the compiled app, they can technically be
 extracted by someone with the APK/IPA (this is inherent to any backend-less,
-client-only architecture, and is an accepted tradeoff here — see the Groq
-dashboard for usage limits/rotation if that's a concern).
+client-only architecture, and is an accepted tradeoff here — see the Groq/
+Unsplash dashboards for usage limits/rotation if that's a concern).
 
 ## App icon & splash screen
 
 - The app icon (`fridge_ai/assets/icons/app_icon.png`, 1024×1024) is used to
   generate every Android/iOS launcher icon size via `flutter_launcher_icons`
   (configured in `pubspec.yaml`, run automatically in both CI workflows
-  before the build step).
+  before the build step). Android gets a single flat `ic_launcher.png` per
+  density bucket (`mipmap-mdpi` … `mipmap-xxxhdpi`) — no adaptive icon, no
+  separate background/foreground layers.
 - The **native** launch screen (Android `launch_background.xml`, iOS
   `LaunchScreen.storyboard`) shows the same warm-orange gradient and logo
   mark as the icon, at rest, for the brief instant before the Flutter engine

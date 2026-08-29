@@ -17,10 +17,11 @@ composited onto a flat/solid color. That's the actual fix for the "gradient
 turned into a solid color" bug this script was written to prevent from
 recurring.
 
-For the Android adaptive icon specifically: Android draws two layers
-(background + foreground) and masks them together. To keep the gradient
-intact without doubling the logo, the background layer gets the full image
-and the foreground layer is fully transparent.
+Android gets a single flat ic_launcher.png per density bucket - no adaptive
+icon (no background/foreground layers, no mipmap-anydpi-v26/ic_launcher.xml).
+A single flat icon is simpler, has no risk of the background/foreground
+layers doubling or misaligning the logo, and is still displayed correctly
+(masked to the device's icon shape) on every Android version.
 
 Usage:
     python3 tools/generate_app_icons.py
@@ -46,48 +47,30 @@ LEGACY_SIZES = {
     "mipmap-xxxhdpi": 192,
 }
 
-# Adaptive icon canvas is larger than the legacy icon so the system has
-# room to mask/animate it; Google's spec size per density bucket.
-ADAPTIVE_SIZES = {
-    "mipmap-mdpi": 108,
-    "mipmap-hdpi": 162,
-    "mipmap-xhdpi": 216,
-    "mipmap-xxhdpi": 324,
-    "mipmap-xxxhdpi": 432,
-}
-
-ADAPTIVE_ICON_XML = """<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-</adaptive-icon>
-"""
-
 
 def generate_android(src_rgba: Image.Image) -> None:
+    # Remove any leftover adaptive-icon files from a previous run so the
+    # repo never ends up with both the single flat icon AND stale
+    # background/foreground layers sitting side by side.
+    anydpi = os.path.join(ANDROID_RES, "mipmap-anydpi-v26")
+    stale_xml = os.path.join(anydpi, "ic_launcher.xml")
+    if os.path.exists(stale_xml):
+        os.remove(stale_xml)
+    if os.path.isdir(anydpi) and not os.listdir(anydpi):
+        os.rmdir(anydpi)
+
     for folder, size in LEGACY_SIZES.items():
         d = os.path.join(ANDROID_RES, folder)
         os.makedirs(d, exist_ok=True)
+        for stale in ("ic_launcher_background.png", "ic_launcher_foreground.png"):
+            stale_path = os.path.join(d, stale)
+            if os.path.exists(stale_path):
+                os.remove(stale_path)
         src_rgba.resize((size, size), Image.LANCZOS).save(
             os.path.join(d, "ic_launcher.png")
         )
 
-    for folder, size in ADAPTIVE_SIZES.items():
-        d = os.path.join(ANDROID_RES, folder)
-        os.makedirs(d, exist_ok=True)
-        src_rgba.resize((size, size), Image.LANCZOS).save(
-            os.path.join(d, "ic_launcher_background.png")
-        )
-        Image.new("RGBA", (size, size), (0, 0, 0, 0)).save(
-            os.path.join(d, "ic_launcher_foreground.png")
-        )
-
-    anydpi = os.path.join(ANDROID_RES, "mipmap-anydpi-v26")
-    os.makedirs(anydpi, exist_ok=True)
-    with open(os.path.join(anydpi, "ic_launcher.xml"), "w") as f:
-        f.write(ADAPTIVE_ICON_XML)
-
-    print(f"Android: wrote {len(LEGACY_SIZES)} legacy + {len(ADAPTIVE_SIZES)} adaptive icon sizes")
+    print(f"Android: wrote {len(LEGACY_SIZES)} single-layer icon sizes")
 
 
 def generate_ios(src_rgb: Image.Image) -> None:
