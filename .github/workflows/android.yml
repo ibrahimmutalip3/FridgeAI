@@ -1,0 +1,71 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            fridge_ai/.dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('fridge_ai/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        working-directory: fridge_ai
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        working-directory: fridge_ai
+        run: dart run flutter_launcher_icons
+
+      - name: Analyze
+        working-directory: fridge_ai
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: fridge_ai
+        run: flutter test
+
+      # The GROQ_API_KEY secret is injected only as a build-time --dart-define
+      # value baked into the compiled app via String.fromEnvironment. It is
+      # never echoed, printed, or written to a file, so it never appears in
+      # the workflow logs.
+      - name: Build release APK
+        working-directory: fridge_ai
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          flutter build apk --release --dart-define=GROQ_API_KEY="$GROQ_API_KEY"
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FridgeAI-release-apk
+          path: fridge_ai/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30

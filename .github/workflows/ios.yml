@@ -1,0 +1,81 @@
+name: iOS Build (Unsigned)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-ios:
+    name: Build unsigned iOS IPA
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            fridge_ai/.dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('fridge_ai/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        working-directory: fridge_ai
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        working-directory: fridge_ai
+        run: dart run flutter_launcher_icons
+
+      - name: Analyze
+        working-directory: fridge_ai
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: fridge_ai
+        run: flutter test
+
+      # No Apple signing identity, certificate, or provisioning profile is
+      # configured anywhere in this repo or workflow — --no-codesign builds a
+      # Runner.app that is not signed. The GROQ_API_KEY secret is only ever
+      # passed as a --dart-define build argument; it's never printed or
+      # written to a file, so it never appears in the workflow logs.
+      - name: Build unsigned iOS app
+        working-directory: fridge_ai
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          flutter build ios --release --no-codesign --dart-define=GROQ_API_KEY="$GROQ_API_KEY"
+
+      # Package the unsigned Runner.app into a standard IPA folder layout
+      # (Payload/Runner.app) so it can be re-signed locally (e.g. with ESign)
+      # and installed on a device.
+      - name: Package unsigned IPA
+        working-directory: fridge_ai
+        run: |
+          set -e
+          BUILD_DIR="build/ios/iphoneos"
+          PAYLOAD_DIR="$BUILD_DIR/Payload"
+          mkdir -p "$PAYLOAD_DIR"
+          cp -R "$BUILD_DIR/Runner.app" "$PAYLOAD_DIR/Runner.app"
+          cd "$BUILD_DIR"
+          zip -r -y "FridgeAI-unsigned.ipa" "Payload" > /dev/null
+          echo "Created $BUILD_DIR/FridgeAI-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: FridgeAI-unsigned-ipa
+          path: fridge_ai/build/ios/iphoneos/FridgeAI-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
