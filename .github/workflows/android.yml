@@ -25,6 +25,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
@@ -50,6 +55,19 @@ jobs:
       - name: Run tests
         working-directory: fridge_ai
         run: flutter test
+
+      # Regenerate the Gradle wrapper jar using the system Gradle installed by
+      # gradle/actions/setup-gradle above, right before the build. This makes
+      # the build immune to the committed jar being missing, truncated, or
+      # silently overwritten by an earlier tool step — `gradle wrapper`
+      # rewrites gradlew, gradlew.bat, and gradle-wrapper.jar from a known-good
+      # source every run, using the version pinned in gradle-wrapper.properties.
+      - name: Regenerate Gradle wrapper
+        working-directory: fridge_ai/android
+        run: |
+          gradle wrapper --gradle-version 8.9
+          ls -la gradle/wrapper/
+          test -s gradle/wrapper/gradle-wrapper.jar
 
       # The GROQ_API_KEY secret is injected only as a build-time --dart-define
       # value baked into the compiled app via String.fromEnvironment. It is
