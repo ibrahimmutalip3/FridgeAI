@@ -91,6 +91,7 @@
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				C0FFEE001E1EE1E1004384FC /* Profile.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				F1E5C9A0B2D3E4F5A6B7C8D9 /* GeneratedPluginRegistrant.swift */,
 			);
 			path = Flutter;
 			sourceTree = "<group>";
@@ -123,7 +124,6 @@
 				97C147021CF9000F007C117D /* Info.plist */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
-				F1E5C9A0B2D3E4F5A6B7C8D9 /* GeneratedPluginRegistrant.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -256,7 +256,7 @@
 			);
 			name = "Run Script";
 			outputPaths = (
-				"$(SRCROOT)/Runner/GeneratedPluginRegistrant.swift",
+				"$(SRCROOT)/Flutter/GeneratedPluginRegistrant.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
