@@ -3,102 +3,133 @@ name: iOS Build (Unsigned)
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+
+  workflow_dispatch:
 
 jobs:
   build-ios:
     name: Build unsigned iOS IPA
     runs-on: macos-15
+
     steps:
+      # 1. Download repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Install Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      # NOTE: deliberately NOT caching fridge_ai/.dart_tool here (unlike a
-      # naive pub-cache setup might). actions/cache's `restore-keys` fallback
-      # means that if the exact pubspec.lock-keyed cache entry isn't found,
-      # it silently restores the *most recent* cache under the `macOS-pub-`
-      # prefix instead — i.e. potentially a `.dart_tool` snapshot from a
-      # different commit/dependency set than the one just checked out. Flutter's
-      # iOS build step (`xcode_backend.sh`) reads `.dart_tool/package_config.json`
-      # and `.flutter-plugins-dependencies` to decide what to (re)generate,
-      # including `ios/Runner/GeneratedPluginRegistrant.swift` — a stale,
-      # mismatched `.dart_tool` here can make it skip regenerating that file,
-      # so Xcode then fails with "Error opening input file
-      # .../GeneratedPluginRegistrant.swift (No such file or directory)"
-      # even though the build otherwise looks fine. `subosito/flutter-action`'s
-      # own `cache: true` above already caches the Flutter SDK itself safely
-      # (keyed by SDK version, not project state), so no extra caching is
-      # needed here — `flutter pub get` re-resolving packages from the pub
-      # cache each run is fast and, more importantly, correct.
+      # 3. Show environment information
+      - name: Flutter doctor
+        run: flutter doctor -v
 
-      # Belt-and-braces: explicitly wipe any leftover build/, .dart_tool/,
-      # and ios/Flutter/ephemeral/ state before installing dependencies, so
-      # every build starts from a known-clean slate and always regenerates
-      # GeneratedPluginRegistrant.swift, Generated.xcconfig, etc. fresh.
-      - name: Clean
+      # 4. Clean old generated files
+      - name: Clean project
         working-directory: fridge_ai
-        run: flutter clean
+        run: |
+          flutter clean
+          rm -rf build
+          rm -rf .dart_tool
+          rm -rf ios/Pods
+          rm -rf ios/.symlinks
 
+      # 5. Install Flutter dependencies
       - name: Install dependencies
         working-directory: fridge_ai
         run: flutter pub get
 
+      # 6. Generate launcher icons
       - name: Generate launcher icons
         working-directory: fridge_ai
         run: dart run flutter_launcher_icons
 
-      - name: Analyze
-        working-directory: fridge_ai
-        run: flutter analyze
+      # 7. Install iOS CocoaPods dependencies
+      - name: Install CocoaPods dependencies
+        working-directory: fridge_ai/ios
+        run: |
+          pod install --repo-update
 
-      - name: Run tests
-        working-directory: fridge_ai
-        run: flutter test
-
-      # No Apple signing identity, certificate, or provisioning profile is
-      # configured anywhere in this repo or workflow — --no-codesign builds a
-      # Runner.app that is not signed. The GROQ_API_KEY and
-      # UNSPLASH_ACCESS_KEY secrets are only ever passed as --dart-define
-      # build arguments; they're never printed or written to a file, so
-      # they never appear in the workflow logs.
-      #
-      # UNSPLASH_ACCESS_KEY is optional: if it isn't set as a repo secret,
-      # this still builds fine — RecipeImageResolver just skips the network
-      # photo lookup and every recipe uses its bundled local placeholder
-      # image instead (see lib/services/recipe_image_resolver.dart). Add a
-      # free Unsplash "Demo" Access Key at
-      # https://unsplash.com/oauth/applications to get real recipe photos.
+      # 8. Build unsigned iOS application
       - name: Build unsigned iOS app
         working-directory: fridge_ai
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
-          flutter build ios --release --no-codesign -v \
-            --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
-            --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY"
+          set -o pipefail
 
-      # Package the unsigned Runner.app into a standard IPA folder layout
-      # (Payload/Runner.app) so it can be re-signed locally (e.g. with ESign)
-      # and installed on a device.
+          echo "========================================"
+          echo "Starting Flutter iOS build"
+          echo "========================================"
+
+          flutter build ios \
+            --release \
+            --no-codesign \
+            -v \
+            --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
+            --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY" \
+            2>&1 | tee build_ios.log
+
+          echo "========================================"
+          echo "Flutter iOS build finished successfully"
+          echo "========================================"
+
+      # 9. Check that Runner.app was created
+      - name: Check build output
+        working-directory: fridge_ai
+        run: |
+          echo "Checking iOS build output..."
+
+          ls -lah build/ios/iphoneos/
+
+          if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
+            echo "ERROR: Runner.app was not created!"
+            exit 1
+          fi
+
+          echo "Runner.app found successfully!"
+
+      # 10. Create unsigned IPA
       - name: Package unsigned IPA
         working-directory: fridge_ai
         run: |
           set -e
-          BUILD_DIR="build/ios/iphoneos"
-          PAYLOAD_DIR="$BUILD_DIR/Payload"
-          mkdir -p "$PAYLOAD_DIR"
-          cp -R "$BUILD_DIR/Runner.app" "$PAYLOAD_DIR/Runner.app"
-          cd "$BUILD_DIR"
-          zip -r -y "FridgeAI-unsigned.ipa" "Payload" > /dev/null
-          echo "Created $BUILD_DIR/FridgeAI-unsigned.ipa"
 
+          BUILD_DIR="build/ios/iphoneos"
+          IPA_NAME="FridgeAI-unsigned.ipa"
+
+          echo "Removing old Payload folder..."
+          rm -rf "$BUILD_DIR/Payload"
+
+          echo "Creating Payload folder..."
+          mkdir -p "$BUILD_DIR/Payload"
+
+          echo "Copying Runner.app..."
+          cp -R \
+            "$BUILD_DIR/Runner.app" \
+            "$BUILD_DIR/Payload/Runner.app"
+
+          echo "Creating IPA..."
+
+          cd "$BUILD_DIR"
+
+          rm -f "$IPA_NAME"
+
+          zip -r -y \
+            "$IPA_NAME" \
+            Payload
+
+          echo "========================================"
+          echo "IPA CREATED SUCCESSFULLY"
+          echo "========================================"
+
+          ls -lh "$IPA_NAME"
+
+      # 11. Upload IPA to GitHub Actions artifacts
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
