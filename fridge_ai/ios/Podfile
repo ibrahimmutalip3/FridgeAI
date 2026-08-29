@@ -80,7 +80,20 @@ target 'Runner' do
       File.join(File.dirname(package_config_path), path_provider_foundation_root_uri)
     )
   end
-  pod 'path_provider_foundation', :path => File.join(path_provider_foundation_root, 'darwin')
+  podspec_dir = File.join(path_provider_foundation_root, 'darwin')
+  podspec_path = File.join(podspec_dir, 'path_provider_foundation.podspec')
+  unless File.exist?(podspec_path)
+    # Diagnostic: show what's actually on disk so we can see whether this is
+    # a corrupt/incomplete pub-cache entry (missing darwin/ contents
+    # entirely) vs. a wrong path assumption on our part.
+    dir_listing = Dir.exist?(podspec_dir) ? Dir.entries(podspec_dir).join(', ') : '(directory does not exist)'
+    parent_listing = Dir.exist?(path_provider_foundation_root) ? Dir.entries(path_provider_foundation_root).join(', ') : '(directory does not exist)'
+    raise "Expected podspec not found at #{podspec_path}.\n" \
+          "Contents of #{podspec_dir}: #{dir_listing}\n" \
+          "Contents of #{path_provider_foundation_root}: #{parent_listing}\n" \
+          "Try clearing the pub-cache for path_provider_foundation (rm -rf ~/.pub-cache/hosted/pub.dev/path_provider_foundation-*) and re-running flutter pub get."
+  end
+  pod 'path_provider_foundation', :path => podspec_dir
 
   target 'RunnerTests' do
     inherit! :search_paths
