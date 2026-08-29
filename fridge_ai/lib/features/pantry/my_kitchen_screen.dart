@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/screen_header_background.dart';
 import '../../models/ingredient.dart';
 import '../../providers/pantry_providers.dart';
 import '../ingredients/widgets/edit_ingredient_sheet.dart';
@@ -47,38 +48,67 @@ class MyKitchenScreen extends ConsumerWidget {
     final isEmpty = grouped.values.every((list) => list.isEmpty);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('My Kitchen'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'My Kitchen',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             onPressed: () => context.push(AppRoutes.scanner),
-            icon: const Icon(Icons.camera_alt_outlined),
+            icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
             tooltip: 'Scan Kitchen',
           ),
         ],
       ),
-      body: SafeArea(
-        child: isEmpty
-            ? EmptyState(
-                icon: Icons.kitchen_outlined,
-                title: 'Your kitchen is empty',
-                message: 'Scan your fridge or pantry, or add ingredients manually.',
-                actionLabel: 'Scan Kitchen',
-                onAction: () => context.push(AppRoutes.scanner),
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 140),
-                children: [
-                  for (final category in IngredientCategory.values)
-                    if (grouped[category]!.isNotEmpty)
-                      _CategorySection(
-                        category: category,
-                        ingredients: grouped[category]!,
-                        onEdit: (ingredient) => _editIngredient(context, ref, ingredient),
-                        onDelete: (id) => ref.read(pantryProvider.notifier).removeIngredient(id),
+      body: Stack(
+        children: [
+          // Real, static theme photo behind the app bar, fading into the
+          // scaffold background further down the screen.
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ScreenHeaderBackground(query: ScreenBackgrounds.kitchen, height: 260),
+          ),
+          SafeArea(
+            child: isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: kToolbarHeight),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.kitchen_outlined,
+                        title: 'Your kitchen is empty',
+                        message: 'Scan your fridge or pantry, or add ingredients manually.',
+                        actionLabel: 'Scan Kitchen',
+                        onAction: () => context.push(AppRoutes.scanner),
                       ),
-                ],
-              ),
+                    ),
+                  )
+                : ListView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      kToolbarHeight + AppSpacing.md,
+                      AppSpacing.lg,
+                      140,
+                    ),
+                    children: [
+                      for (final category in IngredientCategory.values)
+                        if (grouped[category]!.isNotEmpty)
+                          _CategorySection(
+                            category: category,
+                            ingredients: grouped[category]!,
+                            onEdit: (ingredient) => _editIngredient(context, ref, ingredient),
+                            onDelete: (id) => ref.read(pantryProvider.notifier).removeIngredient(id),
+                          ),
+                    ],
+                  ),
+          ),
+        ],
       ),
       bottomNavigationBar: isEmpty
           ? null

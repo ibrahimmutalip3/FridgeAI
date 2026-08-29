@@ -194,4 +194,22 @@ class RecipeImageResolver {
   static String assetForCategory(IngredientCategory category) {
     return _categoryImages[category] ?? _defaultRecipeImage;
   }
+
+  /// The real-photo URL for a given [Ingredient], searched by its own name
+  /// (e.g. "chicken breast", "red onion") rather than its broad category —
+  /// so each pantry item gets a distinct, recognizable photo instead of one
+  /// shared per-category placeholder. Falls back to the category name if
+  /// the ingredient name is somehow empty. Returns an empty string if
+  /// nothing usable comes back, in which case [FallbackImage] shows the
+  /// bundled category placeholder instead.
+  static Future<String> urlForIngredient(
+    Ingredient ingredient, {
+    http.Client? client,
+    String accessKey = UnsplashConfig.accessKey,
+  }) {
+    final query = (ingredient.imageQuery?.trim().isNotEmpty ?? false)
+        ? ingredient.imageQuery!.trim()
+        : (ingredient.name.trim().isNotEmpty ? ingredient.name.trim() : ingredient.category.label);
+    return urlForQuery(query, client: client, accessKey: accessKey);
+  }
 }

@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/screen_header_background.dart';
 import '../../models/ingredient.dart';
 import '../../providers/pantry_providers.dart';
 import '../../providers/recipe_providers.dart';
@@ -57,32 +58,63 @@ class IngredientResultsScreen extends ConsumerWidget {
     final draft = ref.watch(scanDraftProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Here\u2019s what I found')),
-      body: SafeArea(
-        child: draft.isEmpty
-            ? EmptyState(
-                icon: Icons.inventory_2_outlined,
-                title: 'No ingredients here yet',
-                message: 'Add an ingredient manually, or head back and rescan.',
-                actionLabel: 'Add Ingredient',
-                onAction: () => _addIngredient(context, ref),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 160),
-                itemCount: draft.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  final ingredient = draft[index];
-                  return EntranceFade(
-                    index: index,
-                    child: IngredientCard(
-                      ingredient: ingredient,
-                      onEdit: () => _editIngredient(context, ref, ingredient),
-                      onDelete: () => ref.read(scanDraftProvider.notifier).remove(ingredient.id),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Here\u2019s what I found',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Stack(
+        children: [
+          // Real, static theme photo behind the app bar, fading into the
+          // scaffold background further down the screen.
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ScreenHeaderBackground(query: ScreenBackgrounds.kitchen, height: 260),
+          ),
+          SafeArea(
+            child: draft.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: kToolbarHeight),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'No ingredients here yet',
+                        message: 'Add an ingredient manually, or head back and rescan.',
+                        actionLabel: 'Add Ingredient',
+                        onAction: () => _addIngredient(context, ref),
+                      ),
                     ),
-                  );
-                },
-              ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      kToolbarHeight + AppSpacing.md,
+                      AppSpacing.lg,
+                      160,
+                    ),
+                    itemCount: draft.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                    itemBuilder: (context, index) {
+                      final ingredient = draft[index];
+                      return EntranceFade(
+                        index: index,
+                        child: IngredientCard(
+                          ingredient: ingredient,
+                          onEdit: () => _editIngredient(context, ref, ingredient),
+                          onDelete: () => ref.read(scanDraftProvider.notifier).remove(ingredient.id),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(

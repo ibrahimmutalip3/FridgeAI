@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/screen_header_background.dart';
 import '../../core/widgets/section_header.dart';
 import '../../providers/pantry_providers.dart';
 import '../../providers/preferences_providers.dart';
@@ -32,115 +33,135 @@ class HomeScreen extends ConsumerWidget {
     final recommended = ref.watch(pantryBasedRecipesProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.md,
-                AppSpacing.lg,
-                140,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
+        children: [
+          // Real, static theme photo fading into the scaffold background —
+          // pinned behind everything, above the status bar.
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ScreenHeaderBackground(query: ScreenBackgrounds.home, height: 300),
+          ),
+          SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    140,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(_greeting(), style: theme.textTheme.titleSmall),
-                          const SizedBox(height: 2),
-                          Text(preferences.userName, style: theme.textTheme.displayMedium),
-                        ],
-                      ),
-                      GestureDetector(
-                        onTap: () => context.push(AppRoutes.profileTab),
-                        child: CircleAvatar(
-                          radius: 26,
-                          backgroundColor: AppColors.primaryOrange.withValues(alpha: 0.18),
-                          child: Text(
-                            preferences.userName.isNotEmpty
-                                ? preferences.userName[0].toUpperCase()
-                                : 'C',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: AppColors.primaryOrangeDark,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _HeroScanCard(onTap: () => context.push(AppRoutes.scanner)),
-                  const SizedBox(height: AppSpacing.xl),
-                  SectionHeader(
-                    title: 'My Ingredients',
-                    actionLabel: pantry.isNotEmpty ? 'See all' : null,
-                    onActionTap: () => context.push(AppRoutes.myKitchen),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    height: 108,
-                    child: pantry.isEmpty
-                        ? _EmptyIngredientsRow(onTap: () => context.push(AppRoutes.scanner))
-                        : ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: pantry.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
-                            itemBuilder: (context, index) {
-                              final ingredient = pantry[index];
-                              return EntranceFade(
-                                index: index,
-                                child: SizedBox(
-                                  width: 108,
-                                  child: IngredientChip(ingredient: ingredient),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _greeting(),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.92),
                                 ),
-                              );
-                            },
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                preferences.userName,
+                                style: theme.textTheme.displayMedium?.copyWith(color: Colors.white),
+                              ),
+                            ],
                           ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  SectionHeader(
-                    title: 'Recommended for you',
-                    actionLabel: recommended.isNotEmpty ? 'See all' : null,
-                    onActionTap: () => context.push(AppRoutes.recipeResults),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (recommended.isEmpty)
-                    _RecommendedEmptyCard(
-                      hasPantry: pantry.isNotEmpty,
-                      onGenerate: () {
-                        ref.read(recipeGenerationProvider.notifier).generate(pantry);
-                        context.push(AppRoutes.recipeResults);
-                      },
-                      onScan: () => context.push(AppRoutes.scanner),
-                    )
-                  else
-                    Column(
-                      children: [
-                        for (var i = 0; i < recommended.length.clamp(0, 3); i++)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                            child: EntranceFade(
-                              index: i,
-                              child: RecipeCard(
-                                recipe: recommended[i],
-                                onTap: () => context.push(
-                                  AppRoutes.recipeDetails,
-                                  extra: recommended[i],
+                          GestureDetector(
+                            onTap: () => context.push(AppRoutes.profileTab),
+                            child: CircleAvatar(
+                              radius: 26,
+                              backgroundColor: Colors.white.withValues(alpha: 0.85),
+                              child: Text(
+                                preferences.userName.isNotEmpty
+                                    ? preferences.userName[0].toUpperCase()
+                                    : 'C',
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  color: AppColors.primaryOrangeDark,
                                 ),
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                ]),
-              ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      _HeroScanCard(onTap: () => context.push(AppRoutes.scanner)),
+                      const SizedBox(height: AppSpacing.xl),
+                      SectionHeader(
+                        title: 'My Ingredients',
+                        actionLabel: pantry.isNotEmpty ? 'See all' : null,
+                        onActionTap: () => context.push(AppRoutes.myKitchen),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(
+                        height: 108,
+                        child: pantry.isEmpty
+                            ? _EmptyIngredientsRow(onTap: () => context.push(AppRoutes.scanner))
+                            : ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: pantry.length,
+                                separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+                                itemBuilder: (context, index) {
+                                  final ingredient = pantry[index];
+                                  return EntranceFade(
+                                    index: index,
+                                    child: SizedBox(
+                                      width: 108,
+                                      child: IngredientChip(ingredient: ingredient),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      SectionHeader(
+                        title: 'Recommended for you',
+                        actionLabel: recommended.isNotEmpty ? 'See all' : null,
+                        onActionTap: () => context.push(AppRoutes.recipeResults),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (recommended.isEmpty)
+                        _RecommendedEmptyCard(
+                          hasPantry: pantry.isNotEmpty,
+                          onGenerate: () {
+                            ref.read(recipeGenerationProvider.notifier).generate(pantry);
+                            context.push(AppRoutes.recipeResults);
+                          },
+                          onScan: () => context.push(AppRoutes.scanner),
+                        )
+                      else
+                        Column(
+                          children: [
+                            for (var i = 0; i < recommended.length.clamp(0, 3); i++)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                                child: EntranceFade(
+                                  index: i,
+                                  child: RecipeCard(
+                                    recipe: recommended[i],
+                                    onTap: () => context.push(
+                                      AppRoutes.recipeDetails,
+                                      extra: recommended[i],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ]),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

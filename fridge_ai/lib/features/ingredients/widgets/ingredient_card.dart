@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/widgets/fallback_image.dart';
+import '../../../core/widgets/ingredient_image.dart';
 import '../../../core/widgets/soft_card.dart';
 import '../../../models/ingredient.dart';
-import '../../../services/recipe_image_resolver.dart';
 
 /// Full-width ingredient card used on Ingredient Results / My Kitchen —
 /// shows image, name, quantity, and edit/delete actions.
@@ -32,10 +31,9 @@ class IngredientCard extends StatelessWidget {
           SizedBox(
             height: 56,
             width: 56,
-            child: FallbackImage(
-              assetPath: RecipeImageResolver.assetForIngredient(ingredient),
+            child: IngredientImage(
+              ingredient: ingredient,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              icon: _iconFor(ingredient.category),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -65,23 +63,6 @@ class IngredientCard extends StatelessWidget {
       ),
     );
   }
-
-  IconData _iconFor(IngredientCategory category) {
-    switch (category) {
-      case IngredientCategory.vegetables:
-        return Icons.eco_rounded;
-      case IngredientCategory.meat:
-        return Icons.set_meal_rounded;
-      case IngredientCategory.dairy:
-        return Icons.icecream_rounded;
-      case IngredientCategory.fruits:
-        return Icons.apple_rounded;
-      case IngredientCategory.grains:
-        return Icons.grain_rounded;
-      case IngredientCategory.pantry:
-        return Icons.kitchen_rounded;
-    }
-  }
 }
 
 /// Compact vertical chip used in the horizontal "My Ingredients" row on Home.
@@ -108,8 +89,8 @@ class IngredientChip extends StatelessWidget {
           Expanded(
             child: SizedBox(
               width: double.infinity,
-              child: FallbackImage(
-                assetPath: RecipeImageResolver.assetForIngredient(ingredient),
+              child: IngredientImage(
+                ingredient: ingredient,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
             ),

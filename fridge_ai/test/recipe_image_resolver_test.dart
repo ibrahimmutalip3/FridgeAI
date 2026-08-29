@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fridge_ai/models/cooking_step.dart';
+import 'package:fridge_ai/models/ingredient.dart';
 import 'package:fridge_ai/models/recipe.dart';
 import 'package:fridge_ai/services/recipe_image_resolver.dart';
 import 'package:http/http.dart' as http;
@@ -190,6 +191,74 @@ void main() {
 
       final url = await RecipeImageResolver.urlForRecipe(recipe, client: client, accessKey: 'test-key');
       expect(url, 'https://images.unsplash.com/stirfry.jpg');
+    });
+  });
+
+  group('RecipeImageResolver.urlForIngredient', () {
+    test('searches using the ingredient\'s own name, not its category', () async {
+      final ingredient = Ingredient(
+        name: 'Red Bell Pepper Unique',
+        quantity: '2',
+        category: IngredientCategory.vegetables,
+      );
+
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['query'], 'Red Bell Pepper Unique');
+        return http.Response(
+          jsonEncode({
+            'results': [
+              {
+                'urls': {'regular': 'https://images.unsplash.com/bellpepper.jpg'},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+
+      final url = await RecipeImageResolver.urlForIngredient(ingredient, client: client, accessKey: 'test-key');
+      expect(url, 'https://images.unsplash.com/bellpepper.jpg');
+    });
+
+    test('prefers imageQuery over name when both are present', () async {
+      final ingredient = Ingredient(
+        name: 'Chicken',
+        quantity: '500g',
+        category: IngredientCategory.meat,
+        imageQuery: 'raw chicken breast fillet unique',
+      );
+
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['query'], 'raw chicken breast fillet unique');
+        return http.Response(
+          jsonEncode({
+            'results': [
+              {
+                'urls': {'regular': 'https://images.unsplash.com/chicken-breast.jpg'},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+
+      final url = await RecipeImageResolver.urlForIngredient(ingredient, client: client, accessKey: 'test-key');
+      expect(url, 'https://images.unsplash.com/chicken-breast.jpg');
+    });
+
+    test('returns an empty string when nothing usable comes back', () async {
+      final ingredient = Ingredient(
+        name: 'Unique Mystery Item',
+        quantity: '1',
+        category: IngredientCategory.pantry,
+      );
+
+      final client = MockClient((request) async {
+        return http.Response(jsonEncode({'results': []}), 200);
+      });
+
+      final url = await RecipeImageResolver.urlForIngredient(ingredient, client: client, accessKey: 'test-key');
+      expect(url, isEmpty);
     });
   });
 

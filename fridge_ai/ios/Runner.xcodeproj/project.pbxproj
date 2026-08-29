@@ -254,6 +254,7 @@
 			);
 			name = "Run Script";
 			outputPaths = (
+				"$(SRCROOT)/Runner/GeneratedPluginRegistrant.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
