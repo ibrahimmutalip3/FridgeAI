@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 
 import '../core/constants/groq_config.dart';
 import '../core/utils/app_failure.dart';
@@ -41,8 +43,11 @@ class GroqService {
     await _ensureOnline();
 
     final bytes = await imageFile.readAsBytes();
-    final base64Image = base64Encode(bytes);
-    final mimeType = _inferMimeType(imageFile.path);
+    final compressed = await _compressForUpload(bytes);
+    final base64Image = base64Encode(compressed);
+    // The photo is always re-encoded as JPEG by _compressForUpload below,
+    // regardless of the original file extension/format.
+    const mimeType = 'image/jpeg';
 
     final body = {
       'model': GroqConfig.visionModel,
@@ -319,12 +324,47 @@ class GroqService {
     return null;
   }
 
-  String _inferMimeType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    return 'image/jpeg';
+  /// Downscales and re-encodes a photo before it's base64-embedded and sent
+  /// to the vision API.
+  ///
+  /// Photos taken via the in-app camera (scanner_screen.dart uses
+  /// `ResolutionPreset.high` with no compression) can be several megabytes
+  /// at full resolution. Groq's vision endpoint enforces a request size
+  /// limit on base64-embedded images, and very large/high-resolution
+  /// photos were intermittently rejected or failed to yield any detected
+  /// ingredients — surfacing to the user as "I couldn't spot any food in
+  /// that photo" even for a perfectly clear picture, often requiring
+  /// several retries. Resizing to a reasonable max dimension and
+  /// re-encoding as JPEG keeps every upload comfortably within limits
+  /// while remaining more than sharp enough for food/ingredient
+  /// recognition, and also makes uploads noticeably faster on mobile data.
+  Future<Uint8List> _compressForUpload(Uint8List bytes) async {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        // Not a format the `image` package can parse (shouldn't normally
+        // happen for camera/gallery output) — fall back to the original
+        // bytes rather than failing the whole scan.
+        return bytes;
+      }
+
+      const maxDimension = 1568;
+      final needsResize = decoded.width > maxDimension || decoded.height > maxDimension;
+      final resized = needsResize
+          ? img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height ? maxDimension : null,
+              height: decoded.height > decoded.width ? maxDimension : null,
+              interpolation: img.Interpolation.average,
+            )
+          : decoded;
+
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    } catch (_) {
+      // Compression is a best-effort optimization — never let it block a
+      // scan. Worst case, the original (larger) photo is uploaded instead.
+      return bytes;
+    }
   }
 
   static const String _visionSystemPrompt = '''

@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/router/app_routes.dart';
 import '../../providers/preferences_providers.dart';
-import 'widgets/morph_logo_painter.dart';
 
 /// The very first thing the user sees inside Flutter, immediately after the
 /// native launch screen (see android launch_background.xml / iOS
@@ -13,12 +15,14 @@ import 'widgets/morph_logo_painter.dart';
 ///
 /// Both native screens render the same warm-orange gradient + logo mark at
 /// rest, so this widget starts from an identical-looking frame and then
-/// takes over with a full morph sequence:
+/// takes over with a short entrance sequence using the real brand mark
+/// (assets/icons/splash_logo_mark.png — the same artwork as the app icon,
+/// not an approximation):
 ///
 ///   1. Background gradient settles into a subtle animated drift.
-///   2. The logo mark draws itself on, stroke by stroke (a "morph" from
-///      nothing into the full glyph), scaling in with a soft overshoot.
-///   3. The sparkle twinkles gently while the wordmark fades up beneath it.
+///   2. The logo mark scales/fades in with a soft overshoot.
+///   3. It settles into a gentle breathing glow while the wordmark fades up
+///      beneath it.
 ///   4. The whole scene cross-fades + scales into the next screen (onboarding
 ///      or home), so there's no hard cut — one continuous motion.
 class SplashScreen extends ConsumerStatefulWidget {
@@ -29,7 +33,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProviderStateMixin {
-  // Master timeline driving the logo draw-on, scale and settle.
+  // Master timeline driving the logo scale-in and settle.
   late final AnimationController _entrance = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1900),
@@ -57,16 +61,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
   late final Animation<double> _logoFade = CurvedAnimation(
     parent: _entrance,
     curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
-  );
-
-  late final Animation<double> _drawProgress = CurvedAnimation(
-    parent: _entrance,
-    curve: const Interval(0.05, 0.85, curve: Curves.easeInOutCubic),
-  );
-
-  late final Animation<double> _morphSettle = CurvedAnimation(
-    parent: _entrance,
-    curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
   );
 
   late final Animation<double> _wordmarkFade = CurvedAnimation(
@@ -143,14 +137,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                           child: SizedBox(
                             width: 128,
                             height: 128,
-                            child: CustomPaint(
-                              painter: MorphLogoPainter(
-                                drawProgress: _drawProgress.value,
-                                morphProgress: _morphSettle.value,
-                                sparkleProgress: _idle.value,
-                                color: Colors.white,
-                              ),
-                            ),
+                            child: _BreathingLogo(idleT: _idle.value),
                           ),
                         ),
                       ),
@@ -204,6 +191,43 @@ class _SplashBackground extends StatelessWidget {
         ),
       ),
       child: child,
+    );
+  }
+}
+
+/// Renders the real brand mark (same artwork as the app icon, not a
+/// code-drawn approximation) with a soft pulsing glow behind it while the
+/// splash idles — mirrors the gentle "breathing" the old sparkle twinkle
+/// gave, but driven by the actual logo image.
+class _BreathingLogo extends StatelessWidget {
+  const _BreathingLogo({required this.idleT});
+
+  /// 0 -> 1 -> loops, one full breathing cycle.
+  final double idleT;
+
+  @override
+  Widget build(BuildContext context) {
+    final pulse = 0.5 + 0.5 * math.sin(2 * math.pi * idleT);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Opacity(
+          opacity: 0.16 * pulse,
+          child: ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: Image.asset(
+              'assets/icons/splash_logo_mark.png',
+              width: 128,
+              height: 128,
+            ),
+          ),
+        ),
+        Image.asset(
+          'assets/icons/splash_logo_mark.png',
+          width: 128,
+          height: 128,
+        ),
+      ],
     );
   }
 }
