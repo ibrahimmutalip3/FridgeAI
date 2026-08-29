@@ -65,7 +65,7 @@ void main() {
 
   group('Recipe.fromAiJson imageQuery handling', () {
     test('uses the AI-provided imageQuery when present', () {
-      final recipe = Recipe.fromAiJson({
+      final recipe = Recipe.fromAiJson(const {
         'title': 'Creamy Chicken Rice',
         'imageQuery': 'creamy chicken rice bowl',
       });
@@ -73,10 +73,10 @@ void main() {
     });
 
     test('falls back to the title when imageQuery is missing or blank', () {
-      final missing = Recipe.fromAiJson({'title': 'Veggie Stir Fry'});
+      final missing = Recipe.fromAiJson(const {'title': 'Veggie Stir Fry'});
       expect(missing.imageQuery, 'Veggie Stir Fry');
 
-      final blank = Recipe.fromAiJson({'title': 'Veggie Stir Fry', 'imageQuery': '   '});
+      final blank = Recipe.fromAiJson(const {'title': 'Veggie Stir Fry', 'imageQuery': '   '});
       expect(blank.imageQuery, 'Veggie Stir Fry');
     });
   });

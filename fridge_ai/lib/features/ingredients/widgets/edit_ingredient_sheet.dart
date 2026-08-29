@@ -21,7 +21,7 @@ class _EditIngredientSheetState extends State<EditIngredientSheet> {
   late final TextEditingController _quantityController =
       TextEditingController(text: widget.ingredient?.quantity ?? '');
   late IngredientCategory _category = widget.ingredient?.category ?? IngredientCategory.pantry;
-  DateTime? _expirationDate = widget.ingredient?.expirationDate;
+  late DateTime? _expirationDate = widget.ingredient?.expirationDate;
 
   @override
   void dispose() {

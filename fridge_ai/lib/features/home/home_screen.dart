@@ -157,7 +157,7 @@ class _HeroScanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -244,7 +244,7 @@ class _RecommendedEmptyCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.auto_awesome_rounded, color: AppColors.primaryOrange, size: 28),
+          const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryOrange, size: 28),
           const SizedBox(height: AppSpacing.sm),
           Text(
             hasPantry ? 'Ready when you are' : 'Scan your fridge to get started',

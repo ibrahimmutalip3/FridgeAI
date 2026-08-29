@@ -32,7 +32,7 @@ void main() {
 
   group('RecipeIngredient.fromAiJson', () {
     test('parses a well-formed entry', () {
-      final ingredient = RecipeIngredient.fromAiJson({
+      final ingredient = RecipeIngredient.fromAiJson(const {
         'name': 'Chicken breast',
         'quantity': '500g',
         'available': true,
@@ -43,16 +43,16 @@ void main() {
     });
 
     test('coerces a numeric quantity and string "true"/"false"', () {
-      final a = RecipeIngredient.fromAiJson({'name': 'Eggs', 'quantity': 6, 'available': 'true'});
+      final a = RecipeIngredient.fromAiJson(const {'name': 'Eggs', 'quantity': 6, 'available': 'true'});
       expect(a.quantity, '6');
       expect(a.available, isTrue);
 
-      final b = RecipeIngredient.fromAiJson({'name': 'Cream', 'available': 'false'});
+      final b = RecipeIngredient.fromAiJson(const {'name': 'Cream', 'available': 'false'});
       expect(b.available, isFalse);
     });
 
     test('falls back to safe defaults on malformed input', () {
-      final ingredient = RecipeIngredient.fromAiJson(<String, dynamic>{});
+      final ingredient = RecipeIngredient.fromAiJson(const <String, dynamic>{});
       expect(ingredient.name, 'Ingredient');
       expect(ingredient.quantity, '');
       expect(ingredient.available, isFalse);
@@ -61,7 +61,7 @@ void main() {
 
   group('CookingStep.fromAiJson', () {
     test('parses instruction, order and timer', () {
-      final step = CookingStep.fromAiJson({
+      final step = CookingStep.fromAiJson(const {
         'order': 2,
         'instruction': 'Simmer for 10 minutes.',
         'timerSeconds': 600,
@@ -72,21 +72,21 @@ void main() {
     });
 
     test('uses fallbackOrder and a safe instruction when missing', () {
-      final step = CookingStep.fromAiJson(<String, dynamic>{}, 5);
+      final step = CookingStep.fromAiJson(const <String, dynamic>{}, 5);
       expect(step.order, 5);
       expect(step.instruction, isNotEmpty);
       expect(step.timerSeconds, isNull);
     });
 
     test('ignores a non-positive or malformed timer', () {
-      final step = CookingStep.fromAiJson({'instruction': 'Mix.', 'timerSeconds': -10}, 1);
+      final step = CookingStep.fromAiJson(const {'instruction': 'Mix.', 'timerSeconds': -10}, 1);
       expect(step.timerSeconds, isNull);
     });
   });
 
   group('Recipe.fromAiJson', () {
     test('parses a complete, well-formed AI recipe response', () {
-      final recipe = Recipe.fromAiJson({
+      final recipe = Recipe.fromAiJson(const {
         'title': 'Creamy Chicken Rice',
         'description': 'A comforting one-pot dinner.',
         'difficulty': 'easy',
@@ -114,7 +114,7 @@ void main() {
     });
 
     test('accepts plain string instructions as steps', () {
-      final recipe = Recipe.fromAiJson({
+      final recipe = Recipe.fromAiJson(const {
         'title': 'Simple Toast',
         'instructions': ['Toast the bread.', 'Add butter.'],
       });
@@ -124,7 +124,7 @@ void main() {
     });
 
     test('falls back to safe defaults for a completely empty payload', () {
-      final recipe = Recipe.fromAiJson(<String, dynamic>{});
+      final recipe = Recipe.fromAiJson(const <String, dynamic>{});
       expect(recipe.title, 'Untitled recipe');
       expect(recipe.difficulty, Difficulty.medium);
       expect(recipe.cookingTimeMinutes, 20);
@@ -134,7 +134,7 @@ void main() {
     });
 
     test('coerces string-typed numeric fields', () {
-      final recipe = Recipe.fromAiJson({
+      final recipe = Recipe.fromAiJson(const {
         'title': 'Test',
         'cookingTimeMinutes': '30 min',
         'servings': '6',
@@ -145,7 +145,7 @@ void main() {
 
     test('never throws on deeply malformed input', () {
       expect(
-        () => Recipe.fromAiJson({
+        () => Recipe.fromAiJson(const {
           'title': 123,
           'ingredients': 'not a list',
           'instructions': null,

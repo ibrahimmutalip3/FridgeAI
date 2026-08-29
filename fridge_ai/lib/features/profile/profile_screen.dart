@@ -6,7 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/soft_card.dart';
 import '../../models/user_preferences.dart';
 import '../../providers/preferences_providers.dart';
-import 'widgets/edit_tags_sheet.dart';
+import '../recipes/widgets/edit_tags_sheet.dart';
 
 /// Profile — avatar, cooking stats, dietary/allergy/cuisine preferences,
 /// and app settings (theme, notifications).

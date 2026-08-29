@@ -46,7 +46,6 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final pantry = ref.watch(pantryProvider);
     final basedOnIngredients = _applyQuery(ref.watch(pantryBasedRecipesProvider));
     final recentlyViewed = _applyQuery(ref.watch(recentlyViewedProvider));

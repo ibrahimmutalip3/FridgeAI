@@ -4,7 +4,7 @@ import 'package:fridge_ai/models/scan_result.dart';
 void main() {
   group('ScanResult.fromAiJson', () {
     test('parses a well-formed detection response', () {
-      final result = ScanResult.fromAiJson({
+      final result = ScanResult.fromAiJson(const {
         'ingredients': [
           {'name': 'Eggs', 'quantity': '6', 'category': 'dairy'},
           {'name': 'Tomatoes', 'quantity': '3', 'category': 'vegetables'},
@@ -20,25 +20,25 @@ void main() {
     });
 
     test('fails gracefully when "ingredients" is missing', () {
-      final result = ScanResult.fromAiJson(<String, dynamic>{'note': 'nothing here'});
+      final result = ScanResult.fromAiJson(const <String, dynamic>{'note': 'nothing here'});
       expect(result.success, isFalse);
       expect(result.ingredients, isEmpty);
       expect(result.errorMessage, isNotNull);
     });
 
     test('fails gracefully when "ingredients" is an empty list', () {
-      final result = ScanResult.fromAiJson({'ingredients': <dynamic>[]});
+      final result = ScanResult.fromAiJson(const {'ingredients': <dynamic>[]});
       expect(result.success, isFalse);
       expect(result.errorMessage, isNotNull);
     });
 
     test('fails gracefully when "ingredients" is the wrong type', () {
-      final result = ScanResult.fromAiJson({'ingredients': 'not a list'});
+      final result = ScanResult.fromAiJson(const {'ingredients': 'not a list'});
       expect(result.success, isFalse);
     });
 
     test('skips malformed entries but keeps valid ones', () {
-      final result = ScanResult.fromAiJson({
+      final result = ScanResult.fromAiJson(const {
         'ingredients': [
           {'name': 'Milk', 'quantity': '1 bottle'},
           'not a map',
@@ -51,8 +51,8 @@ void main() {
     });
 
     test('never throws on a completely malformed payload', () {
-      expect(() => ScanResult.fromAiJson(<String, dynamic>{}), returnsNormally);
-      expect(() => ScanResult.fromAiJson({'ingredients': null}), returnsNormally);
+      expect(() => ScanResult.fromAiJson(const <String, dynamic>{}), returnsNormally);
+      expect(() => ScanResult.fromAiJson(const {'ingredients': null}), returnsNormally);
     });
   });
 

@@ -6,7 +6,6 @@ import '../../core/router/app_routes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
-import '../../models/recipe.dart';
 import '../../providers/pantry_providers.dart';
 import '../../providers/recipe_providers.dart';
 import 'widgets/recipe_card.dart';

@@ -38,7 +38,6 @@ class _OnboardingRefreshListenable extends ChangeNotifier {
 }
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// The app-wide [GoRouter], provided via Riverpod so it can read
 /// [preferencesProvider] for the onboarding redirect and rebuild only when

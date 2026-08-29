@@ -17,7 +17,7 @@ class EditTagsSheet extends StatefulWidget {
 }
 
 class _EditTagsSheetState extends State<EditTagsSheet> {
-  late List<String> _tags = List.of(widget.initialTags);
+  late final List<String> _tags = List.of(widget.initialTags);
   final _inputController = TextEditingController();
 
   @override

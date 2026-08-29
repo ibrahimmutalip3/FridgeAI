@@ -28,7 +28,7 @@ void main() {
 
   group('Ingredient.fromAiJson', () {
     test('parses a well-formed AI response', () {
-      final ingredient = Ingredient.fromAiJson({
+      final ingredient = Ingredient.fromAiJson(const {
         'name': 'Eggs',
         'quantity': '6',
         'category': 'dairy',
@@ -40,27 +40,27 @@ void main() {
     });
 
     test('coerces a numeric quantity into a string', () {
-      final ingredient = Ingredient.fromAiJson({'name': 'Tomatoes', 'quantity': 3});
+      final ingredient = Ingredient.fromAiJson(const {'name': 'Tomatoes', 'quantity': 3});
       expect(ingredient.quantity, '3');
     });
 
     test('falls back to defaults when fields are missing or malformed', () {
-      final ingredient = Ingredient.fromAiJson(<String, dynamic>{});
+      final ingredient = Ingredient.fromAiJson(const <String, dynamic>{});
       expect(ingredient.name, 'Unknown item');
       expect(ingredient.quantity, '1');
       expect(ingredient.category, IngredientCategory.pantry);
     });
 
     test('falls back when name is blank or the wrong type', () {
-      final blank = Ingredient.fromAiJson({'name': '   ', 'quantity': '2'});
+      final blank = Ingredient.fromAiJson(const {'name': '   ', 'quantity': '2'});
       expect(blank.name, 'Unknown item');
 
-      final wrongType = Ingredient.fromAiJson({'name': 42, 'quantity': '2'});
+      final wrongType = Ingredient.fromAiJson(const {'name': 42, 'quantity': '2'});
       expect(wrongType.name, 'Unknown item');
     });
 
     test('never throws on a completely empty or null-heavy payload', () {
-      expect(() => Ingredient.fromAiJson({'name': null, 'quantity': null, 'category': null}),
+      expect(() => Ingredient.fromAiJson(const {'name': null, 'quantity': null, 'category': null}),
           returnsNormally);
     });
   });
@@ -84,7 +84,7 @@ void main() {
     });
 
     test('fromJson tolerates a missing expirationDate', () {
-      final ingredient = Ingredient.fromJson({
+      final ingredient = Ingredient.fromJson(const {
         'id': 'abc123',
         'name': 'Rice',
         'quantity': '1 kg',
