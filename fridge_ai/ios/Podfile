@@ -64,7 +64,7 @@ target 'Runner' do
   # on the duplicate).
   require 'json'
   require 'uri'
-  package_config_path = File.expand_path(File.join('..', '.dart_tool', 'package_config.json'), __FILE__)
+  package_config_path = File.expand_path(File.join('..', '..', '.dart_tool', 'package_config.json'), __FILE__)
   package_config = JSON.parse(File.read(package_config_path))
   path_provider_foundation_package = package_config['packages'].find { |p| p['name'] == 'path_provider_foundation' }
   unless path_provider_foundation_package
