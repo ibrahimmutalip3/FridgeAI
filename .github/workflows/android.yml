@@ -20,12 +20,13 @@ jobs:
           java-version: '17'
 
       # Pinned to the same exact version as the iOS workflow (see its
-      # comment) so both platforms build against an identical, known-good
-      # Flutter SDK instead of silently drifting with `stable`.
+      # comment for why 3.44.7 rather than the newer 3.47.x) so both
+      # platforms build against an identical, known-good Flutter SDK
+      # instead of silently drifting with `stable`.
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.2'
+          flutter-version: '3.44.7'
           channel: 'stable'
           cache: true
 
