@@ -22,15 +22,64 @@ class PantryNotifier extends StateNotifier<List<Ingredient>> {
     }
   }
 
+  /// Adds [ingredient] to the pantry — or, if an item with the same name
+  /// (e.g. "Tomato" scanned a second time) is already in the pantry, merges
+  /// into that existing card (combining quantities) instead of creating a
+  /// second, duplicate card for the same item.
   Future<void> addIngredient(Ingredient ingredient) async {
+    final existingIndex = state.indexWhere((i) => i.isSameItemAs(ingredient));
+    final existing = existingIndex == -1 ? null : state[existingIndex];
+    if (existing != null) {
+      final merged = existing.mergedWith(ingredient);
+      await _ref.read(pantryRepositoryProvider).update(merged);
+      state = [for (final i in state) if (i.id == existing.id) merged else i];
+      return;
+    }
     await _ref.read(pantryRepositoryProvider).add(ingredient);
     state = [ingredient, ...state];
   }
 
+  /// Batch version of [addIngredient] (used when confirming a scan) — each
+  /// incoming ingredient is merged into a matching existing pantry entry by
+  /// name, and duplicates *within* the same batch are merged together too,
+  /// so scanning two tomatoes in one photo also produces a single "Tomato"
+  /// card with quantity 2 rather than two separate cards.
   Future<void> addIngredients(List<Ingredient> ingredients) async {
     if (ingredients.isEmpty) return;
-    await _ref.read(pantryRepositoryProvider).addAll(ingredients);
-    state = [...ingredients, ...state];
+
+    // First, merge duplicates within the incoming batch itself.
+    final mergedBatch = <Ingredient>[];
+    for (final incoming in ingredients) {
+      final matchIndex = mergedBatch.indexWhere((i) => i.isSameItemAs(incoming));
+      if (matchIndex == -1) {
+        mergedBatch.add(incoming);
+      } else {
+        mergedBatch[matchIndex] = mergedBatch[matchIndex].mergedWith(incoming);
+      }
+    }
+
+    // Then merge each batch item into any existing pantry entry, or add it
+    // as new if there's no match yet.
+    var nextState = state;
+    final toAdd = <Ingredient>[];
+    final toUpdate = <Ingredient>[];
+    for (final incoming in mergedBatch) {
+      final existingIndex = nextState.indexWhere((i) => i.isSameItemAs(incoming));
+      if (existingIndex == -1) {
+        toAdd.add(incoming);
+        nextState = [incoming, ...nextState];
+      } else {
+        final merged = nextState[existingIndex].mergedWith(incoming);
+        toUpdate.add(merged);
+        nextState = [for (final i in nextState) if (i.id == merged.id) merged else i];
+      }
+    }
+
+    if (toAdd.isNotEmpty) await _ref.read(pantryRepositoryProvider).addAll(toAdd);
+    for (final ingredient in toUpdate) {
+      await _ref.read(pantryRepositoryProvider).update(ingredient);
+    }
+    state = nextState;
   }
 
   Future<void> updateIngredient(Ingredient ingredient) async {
@@ -75,9 +124,35 @@ final pantryGroupedProvider = Provider.autoDispose<Map<IngredientCategory, List<
 class ScanDraftNotifier extends StateNotifier<List<Ingredient>> {
   ScanDraftNotifier() : super(const []);
 
-  void setAll(List<Ingredient> ingredients) => state = ingredients;
+  /// Replaces the draft with a freshly-scanned batch, merging any items
+  /// within that batch that are the same ingredient (e.g. two tomatoes
+  /// detected in one photo) into a single entry with a combined quantity.
+  void setAll(List<Ingredient> ingredients) {
+    final merged = <Ingredient>[];
+    for (final incoming in ingredients) {
+      final matchIndex = merged.indexWhere((i) => i.isSameItemAs(incoming));
+      if (matchIndex == -1) {
+        merged.add(incoming);
+      } else {
+        merged[matchIndex] = merged[matchIndex].mergedWith(incoming);
+      }
+    }
+    state = merged;
+  }
 
-  void add(Ingredient ingredient) => state = [...state, ingredient];
+  /// Adds a manually-entered ingredient to the draft, merging into an
+  /// existing draft entry of the same item (rather than creating a
+  /// duplicate card) if one is already present.
+  void add(Ingredient ingredient) {
+    final matchIndex = state.indexWhere((i) => i.isSameItemAs(ingredient));
+    if (matchIndex == -1) {
+      state = [...state, ingredient];
+    } else {
+      state = [
+        for (var i = 0; i < state.length; i++) if (i == matchIndex) state[i].mergedWith(ingredient) else state[i],
+      ];
+    }
+  }
 
   void update(Ingredient ingredient) {
     state = [

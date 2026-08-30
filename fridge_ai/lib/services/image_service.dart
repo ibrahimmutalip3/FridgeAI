@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../core/utils/app_failure.dart';
@@ -100,6 +101,96 @@ class ImageService {
       return File(picked.path);
     } catch (_) {
       throw AppFailure.generic();
+    }
+  }
+
+  /// Opens the gallery picker for a small square-ish profile photo. Uses a
+  /// tighter [maxWidth]/quality than [pickFromGallery] since an avatar is
+  /// only ever shown at a few dozen logical pixels — no need to keep a
+  /// full-resolution copy of the original around on disk.
+  Future<File?> pickAvatarFromGallery() async {
+    await ensurePhotoPermission();
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+      if (picked == null) return null;
+      return File(picked.path);
+    } catch (_) {
+      throw AppFailure.generic();
+    }
+  }
+
+  /// Captures a new profile photo with the system camera, at avatar-sized
+  /// resolution (see [pickAvatarFromGallery]).
+  Future<File?> captureAvatarWithCamera() async {
+    await ensureCameraPermission();
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 512,
+        maxHeight: 512,
+        preferredCameraDevice: CameraDevice.front,
+      );
+      if (picked == null) return null;
+      return File(picked.path);
+    } catch (_) {
+      throw AppFailure.generic();
+    }
+  }
+
+  /// Copies [source] into a persistent `avatars/` folder inside the app's
+  /// own documents directory (via `path_provider`) and returns the saved
+  /// file's path, so the avatar survives app restarts and isn't lost if the
+  /// OS clears the image_picker/system-camera temp cache the original file
+  /// came from. Any previously saved avatar file is deleted first, so this
+  /// never leaves stale images behind on disk.
+  ///
+  /// [previousPath], if given, is the [UserPreferences.avatarPath] value
+  /// being replaced.
+  Future<String> saveAvatarLocally(File source, {String? previousPath}) async {
+    try {
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final avatarsDir = Directory('${documentsDir.path}/avatars');
+      if (!await avatarsDir.exists()) {
+        await avatarsDir.create(recursive: true);
+      }
+
+      if (previousPath != null) {
+        final previousFile = File(previousPath);
+        if (await previousFile.exists()) {
+          await previousFile.delete();
+        }
+      }
+
+      final extension = source.path.contains('.') ? source.path.split('.').last : 'jpg';
+      // Timestamped filename so a new pick never collides with (or gets
+      // cached over) the previous avatar's file, even before the old one
+      // above finishes deleting.
+      final destinationPath =
+          '${avatarsDir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      await source.copy(destinationPath);
+      return destinationPath;
+    } catch (_) {
+      throw AppFailure.storage();
+    }
+  }
+
+  /// Deletes the locally-saved avatar file at [path], if it exists. Used
+  /// when the user removes their avatar.
+  Future<void> deleteAvatar(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Non-fatal — a leftover file on disk isn't worth surfacing an error
+      // for; the preference is cleared regardless.
     }
   }
 }

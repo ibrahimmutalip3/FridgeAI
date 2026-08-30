@@ -20,6 +20,7 @@ enum AppThemeMode {
 /// User-configurable preferences persisted locally.
 class UserPreferences extends Equatable {
   final String userName;
+  final String? avatarPath;
   final AppThemeMode themeMode;
   final bool notificationsEnabled;
   final int servingSize;
@@ -30,6 +31,7 @@ class UserPreferences extends Equatable {
 
   const UserPreferences({
     this.userName = 'Chef',
+    this.avatarPath,
     this.themeMode = AppThemeMode.system,
     this.notificationsEnabled = true,
     this.servingSize = 2,
@@ -41,6 +43,8 @@ class UserPreferences extends Equatable {
 
   UserPreferences copyWith({
     String? userName,
+    String? avatarPath,
+    bool clearAvatarPath = false,
     AppThemeMode? themeMode,
     bool? notificationsEnabled,
     int? servingSize,
@@ -51,6 +55,7 @@ class UserPreferences extends Equatable {
   }) {
     return UserPreferences(
       userName: userName ?? this.userName,
+      avatarPath: clearAvatarPath ? null : (avatarPath ?? this.avatarPath),
       themeMode: themeMode ?? this.themeMode,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       servingSize: servingSize ?? this.servingSize,
@@ -64,6 +69,7 @@ class UserPreferences extends Equatable {
   @override
   List<Object?> get props => [
         userName,
+        avatarPath,
         themeMode,
         notificationsEnabled,
         servingSize,

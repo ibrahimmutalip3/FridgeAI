@@ -71,6 +71,11 @@ class _IngredientResultsScreenState extends ConsumerState<IngredientResultsScree
     }
   }
 
+  // NOTE: IngredientCard.onDelete below calls this method directly (not
+  // removalKey.currentState?.remove()) — this is the single entry point for
+  // deletion, which is what keeps it from silently no-op'ing the way
+  // MyKitchenScreen's equivalent code once did.
+
   Future<void> _confirmAndFindRecipes(BuildContext context) async {
     final draft = ref.read(scanDraftProvider);
     if (draft.isEmpty) return;

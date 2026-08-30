@@ -20,6 +20,7 @@ void main() {
     test('has sensible defaults', () {
       const prefs = UserPreferences();
       expect(prefs.userName, 'Chef');
+      expect(prefs.avatarPath, isNull);
       expect(prefs.themeMode, AppThemeMode.system);
       expect(prefs.notificationsEnabled, isTrue);
       expect(prefs.servingSize, 2);
@@ -36,6 +37,18 @@ void main() {
       expect(updated.onboardingComplete, isTrue);
       // Untouched fields stay the same instance's values.
       expect(updated.themeMode, original.themeMode);
+    });
+
+    test('copyWith sets avatarPath', () {
+      const original = UserPreferences();
+      final updated = original.copyWith(avatarPath: '/data/avatars/me.jpg');
+      expect(updated.avatarPath, '/data/avatars/me.jpg');
+    });
+
+    test('copyWith clearAvatarPath removes an existing avatar', () {
+      const original = UserPreferences(avatarPath: '/data/avatars/me.jpg');
+      final updated = original.copyWith(clearAvatarPath: true);
+      expect(updated.avatarPath, isNull);
     });
 
     test('two instances with the same values are equal (Equatable)', () {
@@ -67,6 +80,7 @@ void main() {
         AppConstants.prefAllergies,
         AppConstants.prefFavoriteCuisines,
         AppConstants.prefUserName,
+        AppConstants.prefAvatarPath,
         AppConstants.prefRecipesCooked,
         AppConstants.prefIngredientsScanned,
       ];

@@ -117,4 +117,72 @@ void main() {
       expect(updated.expirationDate, isNull);
     });
   });
+
+  group('Ingredient.isSameItemAs', () {
+    test('matches identical names', () {
+      final a = Ingredient(name: 'Tomato', quantity: '1');
+      final b = Ingredient(name: 'Tomato', quantity: '1');
+      expect(a.isSameItemAs(b), isTrue);
+    });
+
+    test('matches case-insensitively', () {
+      final a = Ingredient(name: 'tomato', quantity: '1');
+      final b = Ingredient(name: 'TOMATO', quantity: '1');
+      expect(a.isSameItemAs(b), isTrue);
+    });
+
+    test('matches simple plurals', () {
+      final a = Ingredient(name: 'Tomato', quantity: '1');
+      final b = Ingredient(name: 'Tomatoes', quantity: '1');
+      expect(a.isSameItemAs(b), isTrue);
+    });
+
+    test('does not match different items', () {
+      final a = Ingredient(name: 'Tomato', quantity: '1');
+      final b = Ingredient(name: 'Potato', quantity: '1');
+      expect(a.isSameItemAs(b), isFalse);
+    });
+  });
+
+  group('Ingredient.mergedWith', () {
+    test('adds two plain numeric quantities', () {
+      final a = Ingredient(name: 'Tomato', quantity: '1');
+      final b = Ingredient(name: 'Tomato', quantity: '1');
+      expect(a.mergedWith(b).quantity, '2');
+    });
+
+    test('adds numeric quantities sharing a unit', () {
+      final a = Ingredient(name: 'Flour', quantity: '200 g');
+      final b = Ingredient(name: 'Flour', quantity: '100 g');
+      expect(a.mergedWith(b).quantity, '300 g');
+    });
+
+    test('keeps the merged entry\'s id/category/expiration from the original', () {
+      final original = Ingredient(
+        name: 'Tomato',
+        quantity: '1',
+        category: IngredientCategory.vegetables,
+        expirationDate: DateTime(2026, 9, 5),
+      );
+      final incoming = Ingredient(name: 'Tomato', quantity: '1');
+      final merged = original.mergedWith(incoming);
+
+      expect(merged.id, original.id);
+      expect(merged.category, IngredientCategory.vegetables);
+      expect(merged.expirationDate, DateTime(2026, 9, 5));
+      expect(merged.quantity, '2');
+    });
+
+    test('falls back to a combined label when units differ', () {
+      final a = Ingredient(name: 'Milk', quantity: '1 bottle');
+      final b = Ingredient(name: 'Milk', quantity: '500 ml');
+      expect(a.mergedWith(b).quantity, '1 bottle + 500 ml');
+    });
+
+    test('falls back to a combined label for non-numeric quantities', () {
+      final a = Ingredient(name: 'Basil', quantity: 'a bunch');
+      final b = Ingredient(name: 'Basil', quantity: 'a bunch');
+      expect(a.mergedWith(b).quantity, 'a bunch');
+    });
+  });
 }

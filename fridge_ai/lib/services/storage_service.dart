@@ -177,6 +177,7 @@ class StorageService {
     final prefs = _preferences;
     return UserPreferences(
       userName: prefs.getString(AppConstants.prefUserName) ?? 'Chef',
+      avatarPath: prefs.getString(AppConstants.prefAvatarPath),
       themeMode: AppThemeMode.fromString(prefs.getString(AppConstants.prefThemeMode)),
       notificationsEnabled: prefs.getBool(AppConstants.prefNotificationsEnabled) ?? true,
       servingSize: prefs.getInt(AppConstants.prefServingSize) ?? 2,
@@ -191,6 +192,11 @@ class StorageService {
     try {
       final prefs = _preferences;
       await prefs.setString(AppConstants.prefUserName, preferences.userName);
+      if (preferences.avatarPath == null) {
+        await prefs.remove(AppConstants.prefAvatarPath);
+      } else {
+        await prefs.setString(AppConstants.prefAvatarPath, preferences.avatarPath!);
+      }
       await prefs.setString(AppConstants.prefThemeMode, preferences.themeMode.name);
       await prefs.setBool(AppConstants.prefNotificationsEnabled, preferences.notificationsEnabled);
       await prefs.setInt(AppConstants.prefServingSize, preferences.servingSize);

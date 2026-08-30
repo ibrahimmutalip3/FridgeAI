@@ -1,13 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/app_failure.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/screen_header_background.dart';
 import '../../core/widgets/soft_card.dart';
 import '../../models/user_preferences.dart';
+import '../../providers/core_providers.dart';
 import '../../providers/preferences_providers.dart';
 import '../recipes/widgets/edit_tags_sheet.dart';
 
@@ -45,6 +49,35 @@ class ProfileScreen extends ConsumerWidget {
     }
   }
 
+  /// Shows the avatar action sheet (take photo / choose from gallery /
+  /// remove current avatar) and applies whatever the user picks. The
+  /// chosen or captured image is copied into the app's own local storage
+  /// (see [PreferencesNotifier.setAvatar]) so it persists across restarts
+  /// without depending on the original file the OS picker returned.
+  Future<void> _editAvatar(BuildContext context, WidgetRef ref, bool hasAvatar) async {
+    final action = await showModalBottomSheet<_AvatarAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AvatarActionSheet(hasAvatar: hasAvatar),
+    );
+    if (action == null || !context.mounted) return;
+
+    try {
+      if (action == _AvatarAction.camera) {
+        final file = await ref.read(imageServiceProvider).captureAvatarWithCamera();
+        if (file != null) await ref.read(preferencesProvider.notifier).setAvatar(file);
+      } else if (action == _AvatarAction.gallery) {
+        final file = await ref.read(imageServiceProvider).pickAvatarFromGallery();
+        if (file != null) await ref.read(preferencesProvider.notifier).setAvatar(file);
+      } else if (action == _AvatarAction.remove) {
+        await ref.read(preferencesProvider.notifier).clearAvatar();
+      }
+    } on AppFailure catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _editTags({
     required BuildContext context,
     required WidgetRef ref,
@@ -68,6 +101,7 @@ class ProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final preferences = ref.watch(preferencesProvider);
     final stats = ref.watch(userStatsProvider);
+    final hasAvatar = preferences.avatarPath != null && File(preferences.avatarPath!).existsSync();
 
     // Running index for the entrance stagger across every section below,
     // so the whole screen reads as one continuous reveal rather than each
@@ -109,18 +143,24 @@ class ProfileScreen extends ConsumerWidget {
                         Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.white,
+                            GestureDetector(
+                              onTap: () => _editAvatar(context, ref, hasAvatar),
                               child: CircleAvatar(
-                                radius: 38,
-                                backgroundColor: AppColors.primaryOrange.withValues(alpha: 0.18),
-                                child: Text(
-                                  preferences.userName.isNotEmpty
-                                      ? preferences.userName[0].toUpperCase()
-                                      : 'C',
-                                  style: theme.textTheme.displayMedium
-                                      ?.copyWith(color: AppColors.primaryOrangeDark),
+                                radius: 40,
+                                backgroundColor: Colors.white,
+                                child: CircleAvatar(
+                                  radius: 38,
+                                  backgroundColor: AppColors.primaryOrange.withValues(alpha: 0.18),
+                                  backgroundImage: hasAvatar ? FileImage(File(preferences.avatarPath!)) : null,
+                                  child: hasAvatar
+                                      ? null
+                                      : Text(
+                                          preferences.userName.isNotEmpty
+                                              ? preferences.userName[0].toUpperCase()
+                                              : 'C',
+                                          style: theme.textTheme.displayMedium
+                                              ?.copyWith(color: AppColors.primaryOrangeDark),
+                                        ),
                                 ),
                               ),
                             ),
@@ -128,7 +168,7 @@ class ProfileScreen extends ConsumerWidget {
                               right: -2,
                               bottom: -2,
                               child: GestureDetector(
-                                onTap: () => _editName(context, ref, preferences.userName),
+                                onTap: () => _editAvatar(context, ref, hasAvatar),
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
@@ -136,7 +176,7 @@ class ProfileScreen extends ConsumerWidget {
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white, width: 2),
                                   ),
-                                  child: const Icon(Icons.edit_rounded, size: 14, color: Colors.white),
+                                  child: const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -145,9 +185,16 @@ class ProfileScreen extends ConsumerWidget {
                         const SizedBox(height: AppSpacing.md),
                         GestureDetector(
                           onTap: () => _editName(context, ref, preferences.userName),
-                          child: Text(
-                            preferences.userName,
-                            style: theme.textTheme.headlineMedium?.copyWith(color: Colors.white),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                preferences.userName,
+                                style: theme.textTheme.headlineMedium?.copyWith(color: Colors.white),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.edit_rounded, size: 16, color: Colors.white.withValues(alpha: 0.8)),
+                            ],
                           ),
                         ),
                       ],
@@ -527,6 +574,75 @@ class _ServingSizeRow extends ConsumerWidget {
             icon: const Icon(Icons.add_circle_outline_rounded),
           ),
         ],
+      ),
+    );
+  }
+}
+
+enum _AvatarAction { camera, gallery, remove }
+
+/// Rounded bottom sheet offering to take a new avatar photo, pick one from
+/// the gallery, or remove the current avatar. Mirrors the visual style of
+/// [EditTagsSheet]/[EditIngredientSheet] (drag handle + rounded top sheet)
+/// rather than a plain [showModalActionSheet]-style list, so it feels
+/// consistent with the rest of the app.
+class _AvatarActionSheet extends StatelessWidget {
+  const _AvatarActionSheet({required this.hasAvatar});
+
+  final bool hasAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+        ),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text('Profile photo', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: AppSpacing.sm),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primaryOrangeDark),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.of(context).pop(_AvatarAction.camera),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.photo_library_rounded, color: AppColors.primaryOrangeDark),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(context).pop(_AvatarAction.gallery),
+            ),
+            if (hasAvatar)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.brightness == Brightness.dark ? AppColors.darkDanger : AppColors.lightDanger,
+                ),
+                title: const Text('Remove photo'),
+                onTap: () => Navigator.of(context).pop(_AvatarAction.remove),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_preferences.dart';
@@ -20,6 +22,26 @@ class PreferencesNotifier extends StateNotifier<UserPreferences> {
   Future<void> setThemeMode(AppThemeMode mode) => update((p) => p.copyWith(themeMode: mode));
 
   Future<void> setUserName(String name) => update((p) => p.copyWith(userName: name));
+
+  /// Copies [source] into the app's local storage (so it survives restarts
+  /// and isn't lost if the OS clears the picker's temp cache) and sets it
+  /// as the user's avatar, replacing any previous avatar file.
+  Future<void> setAvatar(File source) async {
+    final savedPath = await _ref
+        .read(imageServiceProvider)
+        .saveAvatarLocally(source, previousPath: state.avatarPath);
+    await update((p) => p.copyWith(avatarPath: savedPath));
+  }
+
+  /// Removes the current avatar, deleting its local file and reverting to
+  /// the default initial-letter avatar.
+  Future<void> clearAvatar() async {
+    final currentPath = state.avatarPath;
+    if (currentPath != null) {
+      await _ref.read(imageServiceProvider).deleteAvatar(currentPath);
+    }
+    await update((p) => p.copyWith(clearAvatarPath: true));
+  }
 
   Future<void> setServingSize(int size) => update((p) => p.copyWith(servingSize: size));
 

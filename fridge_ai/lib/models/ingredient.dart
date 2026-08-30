@@ -126,6 +126,60 @@ class Ingredient extends Equatable {
     }
   }
 
+  /// Normalized form of [name] used to decide whether two ingredients are
+  /// "the same" for merge purposes (e.g. when the same item is scanned
+  /// twice) — case/whitespace-insensitive and ignores a trailing plural 's'
+  /// so "Tomato" and "tomatoes" still match.
+  String get _mergeKey {
+    var normalized = name.trim().toLowerCase();
+    if (normalized.endsWith('es') && normalized.length > 3) {
+      normalized = normalized.substring(0, normalized.length - 2);
+    } else if (normalized.endsWith('s') && normalized.length > 2) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
+
+  /// Whether [other] represents the same real-world item as this one (same
+  /// name, ignoring case/whitespace/simple plurals) and so should be merged
+  /// into a single pantry card instead of shown as a separate duplicate.
+  bool isSameItemAs(Ingredient other) => _mergeKey == other._mergeKey;
+
+  /// Combines this ingredient with a newly-scanned/added [other] of the same
+  /// item into a single merged entry, instead of the two existing side by
+  /// side as duplicate cards. Keeps this ingredient's id/category/expiration
+  /// (the existing pantry entry "wins" on everything except quantity), and
+  /// adds the quantities together when both are parseable numbers sharing
+  /// a unit (e.g. "2" + "1" -> "3", "200 g" + "100 g" -> "300 g"). When the
+  /// quantities can't be combined numerically (different/no units, or
+  /// non-numeric text like "a bunch"), falls back to a combined label like
+  /// "2 + 1 bottle" so no information is silently dropped.
+  Ingredient mergedWith(Ingredient other) {
+    return copyWith(quantity: _combineQuantities(quantity, other.quantity));
+  }
+
+  static final _quantityPattern = RegExp(r'^\s*([0-9]+(?:\.[0-9]+)?)\s*(.*?)\s*$');
+
+  static String _combineQuantities(String a, String b) {
+    final matchA = _quantityPattern.firstMatch(a);
+    final matchB = _quantityPattern.firstMatch(b);
+    if (matchA != null && matchB != null) {
+      final unitA = matchA.group(2) ?? '';
+      final unitB = matchB.group(2) ?? '';
+      if (unitA.toLowerCase() == unitB.toLowerCase()) {
+        final numA = double.tryParse(matchA.group(1)!);
+        final numB = double.tryParse(matchB.group(1)!);
+        if (numA != null && numB != null) {
+          final sum = numA + numB;
+          final formatted = sum == sum.roundToDouble() ? sum.toInt().toString() : sum.toString();
+          return unitA.isEmpty ? formatted : '$formatted $unitA';
+        }
+      }
+    }
+    if (a.trim() == b.trim()) return a.trim();
+    return '$a + $b';
+  }
+
   Ingredient copyWith({
     String? name,
     String? quantity,

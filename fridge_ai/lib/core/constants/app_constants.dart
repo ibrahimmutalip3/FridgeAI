@@ -20,6 +20,7 @@ class AppConstants {
   static const String prefAllergies = 'pref_allergies';
   static const String prefFavoriteCuisines = 'pref_favorite_cuisines';
   static const String prefUserName = 'pref_user_name';
+  static const String prefAvatarPath = 'pref_avatar_path';
   static const String prefRecipesCooked = 'pref_recipes_cooked';
   static const String prefIngredientsScanned = 'pref_ingredients_scanned';
 

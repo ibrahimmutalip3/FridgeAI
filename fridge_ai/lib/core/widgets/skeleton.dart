@@ -141,10 +141,10 @@ class IngredientCardSkeleton extends StatelessWidget {
         children: [
           _Bone(width: 56, height: 56, borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
           const SizedBox(width: AppSpacing.md),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 _Bone(width: 140, height: 15),
                 SizedBox(height: 8),
                 _Bone(width: 70, height: 12),

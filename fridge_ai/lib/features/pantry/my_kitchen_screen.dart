@@ -57,13 +57,23 @@ class _MyKitchenScreenState extends ConsumerState<MyKitchenScreen> {
     }
   }
 
+  /// Called once (and only once) per ingredient, either by [IngredientCard]'s
+  /// delete button (which starts the exit animation) or, as a fallback, if
+  /// the removal key was somehow already gone. This must be the single path
+  /// that actually mutates persisted pantry state — see the matching note
+  /// in [AnimatedRemoval.onRemoved] below.
   Future<void> _removeIngredient(String id) async {
     final state = _removalKeys[id]?.currentState;
     _removalKeys.remove(id);
     if (state != null) {
+      // Plays the exit animation; AnimatedRemoval calls onRemoved itself
+      // once it finishes, which is what actually removes the ingredient
+      // from the persisted pantry (see onRemoved below). Do not also
+      // remove it here — that would just be a no-op second call into an
+      // already-animating/already-removed AnimatedRemovalState.
       await state.remove();
     } else {
-      ref.read(pantryProvider.notifier).removeIngredient(id);
+      await ref.read(pantryProvider.notifier).removeIngredient(id);
     }
   }
 
@@ -242,9 +252,14 @@ class _CategorySection extends StatelessWidget {
                       child: IngredientCard(
                         ingredient: ingredients[i],
                         onEdit: () => onEdit(ingredients[i]),
-                        // Tapping delete starts the animation; it calls
-                        // onRemoved itself once it completes.
-                        onDelete: () => removalKey.currentState?.remove(),
+                        // Route through the same onDelete (-> _removeIngredient)
+                        // that AnimatedRemoval.onRemoved uses, instead of
+                        // poking removalKey.currentState directly — a second,
+                        // independent entry point here previously caused the
+                        // ingredient to only *appear* removed (animation
+                        // played) without ever actually being deleted from
+                        // the persisted pantry.
+                        onDelete: () => onDelete(ingredients[i].id),
                       ),
                     );
                   },
