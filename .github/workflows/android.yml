@@ -1,0 +1,106 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Pinned to the same exact version as the iOS workflow (see its
+      # comment) so both platforms build against an identical, known-good
+      # Flutter SDK instead of silently drifting with `stable`.
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: 'stable'
+          cache: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14'
+
+      # NOTE: deliberately NOT caching fridge_ai/.dart_tool (see the iOS
+      # workflow for the full explanation) — actions/cache's `restore-keys`
+      # fallback can silently restore a `.dart_tool` snapshot from an older
+      # commit/dependency set when the exact pubspec.lock-keyed entry misses,
+      # which can make Flutter's build tooling skip regenerating
+      # project-state-derived files it should regenerate fresh every run.
+      # `subosito/flutter-action`'s own `cache: true` above already caches
+      # the Flutter SDK itself safely (keyed by SDK version, not project
+      # state).
+      - name: Clean
+        working-directory: fridge_ai
+        run: flutter clean
+
+      - name: Install dependencies
+        working-directory: fridge_ai
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        working-directory: fridge_ai
+        run: dart run flutter_launcher_icons
+
+      - name: Analyze
+        working-directory: fridge_ai
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: fridge_ai
+        run: flutter test
+
+      # Regenerate the Gradle wrapper jar using the system Gradle installed by
+      # gradle/actions/setup-gradle above, right before the build. This makes
+      # the build immune to the committed jar being missing, truncated, or
+      # silently overwritten by an earlier tool step — `gradle wrapper`
+      # rewrites gradlew, gradlew.bat, and gradle-wrapper.jar from a known-good
+      # source every run, using the version pinned in gradle-wrapper.properties.
+      - name: Regenerate Gradle wrapper
+        working-directory: fridge_ai/android
+        run: |
+          gradle wrapper --gradle-version 8.14
+          ls -la gradle/wrapper/
+          test -s gradle/wrapper/gradle-wrapper.jar
+
+      # The GROQ_API_KEY and UNSPLASH_ACCESS_KEY secrets are injected only as
+      # build-time --dart-define values baked into the compiled app via
+      # String.fromEnvironment. They are never echoed, printed, or written
+      # to a file, so they never appear in the workflow logs.
+      #
+      # UNSPLASH_ACCESS_KEY is optional: if it isn't set as a repo secret,
+      # this still builds fine — RecipeImageResolver just skips the network
+      # photo lookup and every recipe uses its bundled local placeholder
+      # image instead (see lib/services/recipe_image_resolver.dart). Add a
+      # free Unsplash "Demo" Access Key at
+      # https://unsplash.com/oauth/applications to get real recipe photos.
+      - name: Build release APK
+        working-directory: fridge_ai
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        run: |
+          flutter build apk --release \
+            --dart-define=GROQ_API_KEY="$GROQ_API_KEY" \
+            --dart-define=UNSPLASH_ACCESS_KEY="$UNSPLASH_ACCESS_KEY"
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FridgeAI-release-apk
+          path: fridge_ai/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30

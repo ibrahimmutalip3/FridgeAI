@@ -1,0 +1,112 @@
+name: fridge_ai
+description: "FridgeAI — an AI-powered food assistant that turns what's in your fridge into delicious recipes."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Camera & images
+  camera: ^0.11.4
+  image_picker: ^1.1.2
+  permission_handler: ^11.3.1
+  cached_network_image: ^3.4.1
+  image: ^4.2.0
+
+  # Local storage
+  shared_preferences: ^2.2.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.3
+  # Pinned to the 2.4.x line on purpose. Versions 2.5.0/2.5.1/2.6.0 restructure
+  # the native iOS/macOS side (they add an `objective_c` dependency, i.e. the
+  # plugin's native glue is generated differently) and no longer ship a
+  # darwin/path_provider_foundation.podspec the way 2.4.x does, which breaks
+  # `pod install` with "Expected podspec not found at .../darwin/...".
+  # Keep this pinned below 2.5.0 until that's confirmed fixed upstream.
+  path_provider_foundation: 2.4.1
+
+  # Networking
+  http: ^1.2.1
+
+  # Utilities
+  equatable: ^2.0.5
+  uuid: ^4.4.0
+  intl: ^0.19.0
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mocktail: ^1.0.3
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  # Swift Package Manager (SPM) is Flutter's new, still-maturing way of
+  # resolving native iOS/macOS plugin dependencies, replacing CocoaPods. This
+  # project's ios/Podfile still integrates plugins via CocoaPods while
+  # Flutter simultaneously treats camera_avfoundation as a Swift Package,
+  # and having both active for the same target confuses Xcode's module
+  # resolution — the AVFoundation system framework ends up not visible the
+  # way camera_avfoundation's Swift sources expect, producing "Type
+  # 'AVCaptureSession' has no member ..." compiler errors even though that
+  # code is valid, unmodified upstream Flutter code. Forcing everything
+  # through the well-established CocoaPods path avoids the conflict. See:
+  # https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers
+  config:
+    enable-swift-package-manager: false
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+# Generates Android + iOS launcher icons from a single 1024x1024 source
+# image (assets/icons/app_icon.png), which already contains the full
+# orange gradient background baked in. Run with:
+#   flutter pub run flutter_launcher_icons
+# (the CI workflows run this automatically before building).
+#
+# IMPORTANT: Android gets a single flat icon only (no adaptive icon). No
+# adaptive_icon_background / adaptive_icon_foreground keys here on purpose —
+# adding them makes flutter_launcher_icons emit ic_launcher_background.png +
+# ic_launcher_foreground.png + mipmap-anydpi-v26/ic_launcher.xml alongside
+# ic_launcher.png in every mipmap-* folder. A single ic_launcher.png per
+# density is simpler and still displays correctly (masked to the device's
+# icon shape) on every Android version.
+#
+# NOTE: the actual committed PNGs under android/app/src/main/res/mipmap-*
+# and ios/Runner/Assets.xcassets/AppIcon.appiconset were generated directly
+# from assets/icons/app_icon.png (see tools/generate_app_icons.py) and
+# checked into git, so the app icon does NOT depend on this step running in
+# CI. Re-run `dart run flutter_launcher_icons` (or the script) only if you
+# replace app_icon.png with a new design.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  remove_alpha_ios: true
+
+# Pins the iOS camera implementation to a version whose Swift code no longer
+# references AVCaptureSession.wasInterruptedNotification /
+# runtimeErrorNotification the way 0.9.23+2 (pulled in by camera ^0.11.0+2)
+# did. Newer Xcode/iOS SDKs on the CI runners no longer expose those as
+# static members the same way, which broke the iOS build. Remove this
+# override once the `camera` package's own constraint moves past 0.10.x.
+dependency_overrides:
+  camera_avfoundation: ^0.10.2
