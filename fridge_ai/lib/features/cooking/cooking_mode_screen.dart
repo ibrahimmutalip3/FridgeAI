@@ -265,10 +265,46 @@ class _AnimatedStepProgressState extends State<_AnimatedStepProgress>
   }
 }
 
-class _FinishedSheet extends StatelessWidget {
+class _FinishedSheet extends StatefulWidget {
   const _FinishedSheet({required this.onDone});
 
   final VoidCallback onDone;
+
+  @override
+  State<_FinishedSheet> createState() => _FinishedSheetState();
+}
+
+class _FinishedSheetState extends State<_FinishedSheet> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    // A rare, celebratory moment (finishing a recipe) earns a bit more
+    // delight than the app's usual restrained motion — a soft overshoot
+    // scale-in on the checkmark, once, when the sheet first appears. Same
+    // controlled-overshoot approach as the splash logo's entrance (a short
+    // TweenSequence, not a bouncy curve).
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.5, end: 1.08).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 70,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.08, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
+    ]).animate(_controller);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -282,24 +318,9 @@ class _FinishedSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // A rare, celebratory moment (finishing a recipe) earns a bit more
-          // delight than the app's usual restrained motion — a soft
-          // overshoot scale-in on the checkmark, once, when the sheet first
-          // appears. Same controlled-overshoot approach as the splash
-          // logo's entrance (a short TweenSequence, not a bouncy curve).
-          TweenAnimationBuilder<double>(
-            tween: TweenSequence<double>([
-              TweenSequenceItem(
-                tween: Tween(begin: 0.5, end: 1.08).chain(CurveTween(curve: Curves.easeOutCubic)),
-                weight: 70,
-              ),
-              TweenSequenceItem(
-                tween: Tween(begin: 1.08, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
-                weight: 30,
-              ),
-            ]),
-            duration: const Duration(milliseconds: 420),
-            builder: (context, value, child) => Transform.scale(scale: value, child: child),
+          AnimatedBuilder(
+            animation: _scale,
+            builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
             child: Container(
               width: 88,
               height: 88,
@@ -330,7 +351,7 @@ class _FinishedSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
               ),
-              onPressed: onDone,
+              onPressed: widget.onDone,
               child: const Text('Done'),
             ),
           ),
