@@ -39,62 +39,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # WORKAROUND: flutter_install_all_ios_pods (via .flutter-plugins-dependencies)
-  # is not picking up path_provider_foundation as a CocoaPods dependency on
-  # this Flutter version, even though:
-  #   - `flutter pub get` resolves path_provider_foundation correctly (it's
-  #     the `default_package` for the `ios` platform entry of `path_provider`,
-  #     which IS a direct dependency in pubspec.yaml)
-  #   - the Flutter tool's plugin scan finds it on disk
-  #     ("Found plugin path_provider_foundation at ...")
-  #   - GeneratedPluginRegistrant.swift is generated with
-  #     `import path_provider_foundation`
-  # but CocoaPods' own `pod install` log never fetches a podspec for it, so
-  # the module is never actually compiled/linked, causing:
-  #   "no such module 'path_provider_foundation'"
-  #
-  # Adding it explicitly here — the same way flutter_install_all_ios_pods
-  # wires up every other plugin — makes CocoaPods install it regardless of
-  # why the automatic resolution skips it. Resolved straight from
-  # .dart_tool/package_config.json (written by `flutter pub get`) instead of
-  # via .symlinks/plugins, since that symlink is also not guaranteed to exist
-  # for a plugin the automatic resolution is skipping.
-  # Remove this once a future Flutter version fixes the underlying
-  # resolution and this line becomes redundant (pod install will just no-op
-  # on the duplicate).
-  require 'json'
-  require 'uri'
-  package_config_path = File.expand_path(File.join('..', '..', '.dart_tool', 'package_config.json'), __FILE__)
-  package_config = JSON.parse(File.read(package_config_path))
-  path_provider_foundation_package = package_config['packages'].find { |p| p['name'] == 'path_provider_foundation' }
-  unless path_provider_foundation_package
-    raise "path_provider_foundation not found in #{package_config_path}. Run flutter pub get first."
-  end
-  path_provider_foundation_root_uri = path_provider_foundation_package['rootUri']
-  if path_provider_foundation_root_uri.start_with?('file://')
-    # Absolute URI (e.g. a hosted pub.dev package under PUB_CACHE) — strip the scheme.
-    path_provider_foundation_root = URI.decode_www_form_component(path_provider_foundation_root_uri.sub('file://', ''))
-  else
-    # Relative URI, resolved against the directory containing package_config.json.
-    path_provider_foundation_root = File.expand_path(
-      File.join(File.dirname(package_config_path), path_provider_foundation_root_uri)
-    )
-  end
-  podspec_dir = File.join(path_provider_foundation_root, 'darwin')
-  podspec_path = File.join(podspec_dir, 'path_provider_foundation.podspec')
-  unless File.exist?(podspec_path)
-    # Diagnostic: show what's actually on disk so we can see whether this is
-    # a corrupt/incomplete pub-cache entry (missing darwin/ contents
-    # entirely) vs. a wrong path assumption on our part.
-    dir_listing = Dir.exist?(podspec_dir) ? Dir.entries(podspec_dir).join(', ') : '(directory does not exist)'
-    parent_listing = Dir.exist?(path_provider_foundation_root) ? Dir.entries(path_provider_foundation_root).join(', ') : '(directory does not exist)'
-    raise "Expected podspec not found at #{podspec_path}.\n" \
-          "Contents of #{podspec_dir}: #{dir_listing}\n" \
-          "Contents of #{path_provider_foundation_root}: #{parent_listing}\n" \
-          "Try clearing the pub-cache for path_provider_foundation (rm -rf ~/.pub-cache/hosted/pub.dev/path_provider_foundation-*) and re-running flutter pub get."
-  end
-  pod 'path_provider_foundation', :path => podspec_dir
-
   target 'RunnerTests' do
     inherit! :search_paths
   end

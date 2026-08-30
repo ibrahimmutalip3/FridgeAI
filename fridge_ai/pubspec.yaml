@@ -30,16 +30,13 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.3
-  # Pinned explicitly (not just pulled in implicitly as path_provider's iOS
-  # default_package) because on this Flutter version the implicit
-  # resolution was leaving this package's darwin/ folder (and therefore its
-  # podspec) missing from the pub-cache download, causing the iOS build to
-  # fail with "no such module 'path_provider_foundation'" / "No podspec
-  # found for `path_provider_foundation`" even though `path_provider`
-  # itself resolved fine. Making it a direct dependency forces pub to fully
-  # fetch it like any other package. Safe to remove if a future Flutter/
-  # path_provider version fixes the implicit resolution.
-  path_provider_foundation: ^2.4.0
+  # Pinned to the 2.4.x line on purpose. Versions 2.5.0/2.5.1/2.6.0 restructure
+  # the native iOS/macOS side (they add an `objective_c` dependency, i.e. the
+  # plugin's native glue is generated differently) and no longer ship a
+  # darwin/path_provider_foundation.podspec the way 2.4.x does, which breaks
+  # `pod install` with "Expected podspec not found at .../darwin/...".
+  # Keep this pinned below 2.5.0 until that's confirmed fixed upstream.
+  path_provider_foundation: 2.4.1
 
   # Networking
   http: ^1.2.1
