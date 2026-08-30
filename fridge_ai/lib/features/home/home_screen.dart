@@ -6,6 +6,7 @@ import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/entrance_fade.dart';
+import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/screen_header_background.dart';
 import '../../core/widgets/section_header.dart';
@@ -166,6 +167,7 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const Positioned(top: 0, left: 0, right: 0, child: LiquidGlassStatusBar()),
         ],
       ),
     );

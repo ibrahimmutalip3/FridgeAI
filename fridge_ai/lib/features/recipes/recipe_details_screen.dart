@@ -9,6 +9,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/fallback_image.dart';
+import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../models/cooking_step.dart';
 import '../../models/recipe.dart';
@@ -41,132 +42,138 @@ class _RecipeDetailsScreenState extends ConsumerState<RecipeDetailsScreen> {
     final isFavorite = favoritesController.isFavorite(recipe.id);
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            backgroundColor: theme.scaffoldBackgroundColor,
-            surfaceTintColor: Colors.transparent,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: _CircleButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: () => context.pop(),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 300,
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor,
+                surfaceTintColor: Colors.transparent,
+                leading: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _CircleButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => context.pop(),
+                  ),
+                ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _FavoriteButton(
+                      isFavorite: isFavorite,
+                      onTap: () async {
+                        HapticFeedback.lightImpact();
+                        await favoritesController.toggle(recipe);
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Hero(
+                    tag: 'recipe_image_${recipe.id}',
+                    child: ClipRRect(
+                      borderRadius:
+                          const BorderRadius.vertical(bottom: Radius.circular(AppSpacing.radiusXl)),
+                      child: FallbackImage(
+                        assetPath: RecipeImageResolver.assetForRecipe(recipe),
+                        networkUrl: recipe.imageUrl,
+                        borderRadius: BorderRadius.zero,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: _FavoriteButton(
-                  isFavorite: isFavorite,
-                  onTap: () async {
-                    HapticFeedback.lightImpact();
-                    await favoritesController.toggle(recipe);
-                    setState(() {});
-                  },
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 140),
+                sliver: SliverList(
+                  // A light, four-beat stagger across whole sections (title,
+                  // info pills, ingredients, instructions) rather than one per
+                  // line — the page transition already carries most of the
+                  // "arrival" motion, so this just keeps content from popping
+                  // in all at once underneath it.
+                  delegate: SliverChildListDelegate([
+                    EntranceFade(
+                      index: 0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(recipe.title, style: theme.textTheme.displayMedium),
+                          const SizedBox(height: AppSpacing.sm),
+                          if (recipe.description.isNotEmpty) ...[
+                            Text(recipe.description, style: theme.textTheme.bodyLarge),
+                            const SizedBox(height: AppSpacing.md),
+                          ],
+                        ],
+                      ),
+                    ),
+                    EntranceFade(
+                      index: 1,
+                      child: Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          DifficultyBadge(difficulty: recipe.difficulty),
+                          InfoPill(icon: Icons.timer_outlined, label: '${recipe.cookingTimeMinutes} min'),
+                          InfoPill(icon: Icons.groups_2_outlined, label: '${recipe.servings} servings'),
+                          MatchBadge(percentage: recipe.matchPercentage),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    EntranceFade(
+                      index: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ingredients', style: theme.textTheme.headlineSmall),
+                          const SizedBox(height: AppSpacing.sm),
+                          if (recipe.availableIngredients.isNotEmpty) ...[
+                            Text(
+                              '\u2713 Already have',
+                              style: theme.textTheme.titleSmall?.copyWith(color: AppColors.secondaryGreen),
+                            ),
+                            const SizedBox(height: 6),
+                            ...recipe.availableIngredients.map(
+                              (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: true),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                          ],
+                          if (recipe.missingIngredients.isNotEmpty) ...[
+                            Text(
+                              'Need to buy',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...recipe.missingIngredients.map(
+                              (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: false),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    EntranceFade(
+                      index: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Instructions', style: theme.textTheme.headlineSmall),
+                          const SizedBox(height: AppSpacing.sm),
+                          ...recipe.steps.map((step) => _StepRow(step: step)),
+                        ],
+                      ),
+                    ),
+                  ]),
                 ),
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'recipe_image_${recipe.id}',
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppSpacing.radiusXl)),
-                  child: FallbackImage(
-                    assetPath: RecipeImageResolver.assetForRecipe(recipe),
-                    networkUrl: recipe.imageUrl,
-                    borderRadius: BorderRadius.zero,
-                  ),
-                ),
-              ),
-            ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 140),
-            sliver: SliverList(
-              // A light, four-beat stagger across whole sections (title,
-              // info pills, ingredients, instructions) rather than one per
-              // line — the page transition already carries most of the
-              // "arrival" motion, so this just keeps content from popping
-              // in all at once underneath it.
-              delegate: SliverChildListDelegate([
-                EntranceFade(
-                  index: 0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(recipe.title, style: theme.textTheme.displayMedium),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (recipe.description.isNotEmpty) ...[
-                        Text(recipe.description, style: theme.textTheme.bodyLarge),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                    ],
-                  ),
-                ),
-                EntranceFade(
-                  index: 1,
-                  child: Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      DifficultyBadge(difficulty: recipe.difficulty),
-                      InfoPill(icon: Icons.timer_outlined, label: '${recipe.cookingTimeMinutes} min'),
-                      InfoPill(icon: Icons.groups_2_outlined, label: '${recipe.servings} servings'),
-                      MatchBadge(percentage: recipe.matchPercentage),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                EntranceFade(
-                  index: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Ingredients', style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (recipe.availableIngredients.isNotEmpty) ...[
-                        Text(
-                          '\u2713 Already have',
-                          style: theme.textTheme.titleSmall?.copyWith(color: AppColors.secondaryGreen),
-                        ),
-                        const SizedBox(height: 6),
-                        ...recipe.availableIngredients.map(
-                          (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: true),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                      if (recipe.missingIngredients.isNotEmpty) ...[
-                        Text(
-                          'Need to buy',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        ...recipe.missingIngredients.map(
-                          (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: false),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                EntranceFade(
-                  index: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Instructions', style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: AppSpacing.sm),
-                      ...recipe.steps.map((step) => _StepRow(step: step)),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
-          ),
+          const Positioned(top: 0, left: 0, right: 0, child: LiquidGlassStatusBar()),
         ],
       ),
       bottomNavigationBar: SafeArea(

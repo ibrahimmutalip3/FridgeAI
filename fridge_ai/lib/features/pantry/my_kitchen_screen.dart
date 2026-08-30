@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/animated_removal.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
+import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/screen_header_background.dart';
 import '../../models/ingredient.dart';
@@ -89,14 +90,12 @@ class _MyKitchenScreenState extends ConsumerState<MyKitchenScreen> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: LiquidGlassAppBar(
         title: Text(
           'My Kitchen',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             onPressed: () => context.push(AppRoutes.scanner),

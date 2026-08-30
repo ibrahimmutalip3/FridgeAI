@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/entrance_fade.dart';
+import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/screen_header_background.dart';
 import '../../core/widgets/soft_card.dart';
 import '../../models/user_preferences.dart';
@@ -76,14 +77,12 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: LiquidGlassAppBar(
         title: Text(
           'Profile',
           style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [

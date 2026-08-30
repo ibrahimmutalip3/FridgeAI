@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
+import '../../core/widgets/liquid_glass_status_bar.dart';
 import '../../core/widgets/skeleton.dart';
 import '../../providers/pantry_providers.dart';
 import '../../providers/recipe_providers.dart';
@@ -23,7 +24,7 @@ class RecipeResultsScreen extends ConsumerWidget {
     final pantry = ref.watch(pantryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Made with what you have')),
+      appBar: const LiquidGlassAppBar(title: Text('Made with what you have')),
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
