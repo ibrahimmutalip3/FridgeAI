@@ -31,6 +31,7 @@ class HomeScreen extends ConsumerWidget {
     final preferences = ref.watch(preferencesProvider);
     final pantry = ref.watch(pantryProvider);
     final recommended = ref.watch(pantryBasedRecipesProvider);
+    final visibleRecommended = recommended.take(3).toList();
 
     return Scaffold(
       body: Stack(
@@ -139,16 +140,20 @@ class HomeScreen extends ConsumerWidget {
                       else
                         Column(
                           children: [
-                            for (var i = 0; i < recommended.length.clamp(0, 3); i++)
+                            for (var i = 0; i < visibleRecommended.length; i++)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                                 child: EntranceFade(
-                                  index: i,
+                                  // Continues the stagger started by the
+                                  // ingredient row above, rather than
+                                  // restarting at 0 — the whole page reads
+                                  // as one reveal.
+                                  index: pantry.length.clamp(0, 6) + i,
                                   child: RecipeCard(
-                                    recipe: recommended[i],
+                                    recipe: visibleRecommended[i],
                                     onTap: () => context.push(
                                       AppRoutes.recipeDetails,
-                                      extra: recommended[i],
+                                      extra: visibleRecommended[i],
                                     ),
                                   ),
                                 ),

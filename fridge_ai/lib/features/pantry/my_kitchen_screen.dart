@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/animated_removal.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/primary_button.dart';
@@ -15,10 +16,23 @@ import '../ingredients/widgets/ingredient_card.dart';
 
 /// "My Kitchen" — the persisted pantry, organized into category sections
 /// (Vegetables, Meat, Dairy, Fruits, Grains, Pantry) with add/scan actions.
-class MyKitchenScreen extends ConsumerWidget {
+class MyKitchenScreen extends ConsumerStatefulWidget {
   const MyKitchenScreen({super.key});
 
-  Future<void> _addIngredient(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<MyKitchenScreen> createState() => _MyKitchenScreenState();
+}
+
+class _MyKitchenScreenState extends ConsumerState<MyKitchenScreen> {
+  // One removal-animation key per ingredient id — see the matching pattern
+  // (and rationale) in IngredientResultsScreen.
+  final _removalKeys = <String, GlobalKey<AnimatedRemovalState>>{};
+
+  GlobalKey<AnimatedRemovalState> _keyFor(String id) {
+    return _removalKeys.putIfAbsent(id, () => GlobalKey<AnimatedRemovalState>());
+  }
+
+  Future<void> _addIngredient(BuildContext context) async {
     final result = await showModalBottomSheet<Ingredient>(
       context: context,
       isScrollControlled: true,
@@ -30,7 +44,7 @@ class MyKitchenScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _editIngredient(BuildContext context, WidgetRef ref, Ingredient ingredient) async {
+  Future<void> _editIngredient(BuildContext context, Ingredient ingredient) async {
     final result = await showModalBottomSheet<Ingredient>(
       context: context,
       isScrollControlled: true,
@@ -42,8 +56,34 @@ class MyKitchenScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _removeIngredient(String id) async {
+    final state = _removalKeys[id]?.currentState;
+    _removalKeys.remove(id);
+    if (state != null) {
+      await state.remove();
+    } else {
+      ref.read(pantryProvider.notifier).removeIngredient(id);
+    }
+  }
+
+  /// Builds the ordered list of non-empty category sections, each carrying
+  /// a running [_SectionEntry.startIndex] so the entrance stagger continues
+  /// smoothly across section boundaries instead of restarting at 0 for
+  /// every category (which previously made whole sections fade in at once).
+  List<_SectionEntry> _sectionsWithStartIndex(Map<IngredientCategory, List<Ingredient>> grouped) {
+    final entries = <_SectionEntry>[];
+    var runningIndex = 0;
+    for (final category in IngredientCategory.values) {
+      final ingredients = grouped[category]!;
+      if (ingredients.isEmpty) continue;
+      entries.add(_SectionEntry(category: category, ingredients: ingredients, startIndex: runningIndex));
+      runningIndex += ingredients.length;
+    }
+    return entries;
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final grouped = ref.watch(pantryGroupedProvider);
     final isEmpty = grouped.values.every((list) => list.isEmpty);
 
@@ -97,14 +137,15 @@ class MyKitchenScreen extends ConsumerWidget {
                       140,
                     ),
                     children: [
-                      for (final category in IngredientCategory.values)
-                        if (grouped[category]!.isNotEmpty)
-                          _CategorySection(
-                            category: category,
-                            ingredients: grouped[category]!,
-                            onEdit: (ingredient) => _editIngredient(context, ref, ingredient),
-                            onDelete: (id) => ref.read(pantryProvider.notifier).removeIngredient(id),
-                          ),
+                      for (final entry in _sectionsWithStartIndex(grouped))
+                        _CategorySection(
+                          category: entry.category,
+                          ingredients: entry.ingredients,
+                          startIndex: entry.startIndex,
+                          keyFor: _keyFor,
+                          onEdit: (ingredient) => _editIngredient(context, ingredient),
+                          onDelete: _removeIngredient,
+                        ),
                     ],
                   ),
           ),
@@ -129,7 +170,7 @@ class MyKitchenScreen extends ConsumerWidget {
                       child: PrimaryButton(
                         label: 'Add Ingredient',
                         icon: Icons.add_rounded,
-                        onPressed: () => _addIngredient(context, ref),
+                        onPressed: () => _addIngredient(context),
                       ),
                     ),
                   ],
@@ -140,18 +181,32 @@ class MyKitchenScreen extends ConsumerWidget {
   }
 }
 
+/// A single category section paired with the running entrance-stagger index
+/// its first ingredient card should use (see [MyKitchenScreen._sectionsWithStartIndex]).
+class _SectionEntry {
+  const _SectionEntry({required this.category, required this.ingredients, required this.startIndex});
+
+  final IngredientCategory category;
+  final List<Ingredient> ingredients;
+  final int startIndex;
+}
+
 class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.category,
     required this.ingredients,
+    required this.startIndex,
+    required this.keyFor,
     required this.onEdit,
     required this.onDelete,
   });
 
   final IngredientCategory category;
   final List<Ingredient> ingredients;
+  final int startIndex;
+  final GlobalKey<AnimatedRemovalState> Function(String id) keyFor;
   final void Function(Ingredient) onEdit;
-  final void Function(String) onDelete;
+  final Future<void> Function(String id) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -176,11 +231,24 @@ class _CategorySection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: EntranceFade(
-                index: i,
-                child: IngredientCard(
-                  ingredient: ingredients[i],
-                  onEdit: () => onEdit(ingredients[i]),
-                  onDelete: () => onDelete(ingredients[i].id),
+                index: startIndex + i,
+                child: Builder(
+                  builder: (context) {
+                    final removalKey = keyFor(ingredients[i].id);
+                    return AnimatedRemoval(
+                      key: removalKey,
+                      // The only place real state is mutated — runs once
+                      // the exit animation finishes.
+                      onRemoved: () => onDelete(ingredients[i].id),
+                      child: IngredientCard(
+                        ingredient: ingredients[i],
+                        onEdit: () => onEdit(ingredients[i]),
+                        // Tapping delete starts the animation; it calls
+                        // onRemoved itself once it completes.
+                        onDelete: () => removalKey.currentState?.remove(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

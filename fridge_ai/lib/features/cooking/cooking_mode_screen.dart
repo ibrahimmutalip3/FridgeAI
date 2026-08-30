@@ -116,11 +116,13 @@ class _CookingModeScreenState extends ConsumerState<CookingModeScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                    child: LinearProgressIndicator(
+                    // Eases toward the new value instead of jumping —
+                    // matches the "in-place state changes" motion budget
+                    // (≤300ms) so stepping forward/back reads as continuous
+                    // progress rather than a discrete counter tick.
+                    child: _AnimatedStepProgress(
                       value: (_currentStep + 1) / _steps.length,
-                      minHeight: 6,
-                      backgroundColor: theme.dividerColor,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primaryOrange),
+                      trackColor: theme.dividerColor,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -202,6 +204,67 @@ class _CookingModeScreenState extends ConsumerState<CookingModeScreen> {
   }
 }
 
+/// Animates [LinearProgressIndicator]'s value smoothly from whatever it
+/// last was to the new [value], instead of [LinearProgressIndicator]
+/// jumping instantly the way it does with a plain `double`. Explicit
+/// [AnimationController] (not [TweenAnimationBuilder]) specifically so the
+/// tween's `begin` can track the *previous* rendered value on each change,
+/// rather than always animating in from 0.
+class _AnimatedStepProgress extends StatefulWidget {
+  const _AnimatedStepProgress({required this.value, required this.trackColor});
+
+  final double value;
+  final Color trackColor;
+
+  @override
+  State<_AnimatedStepProgress> createState() => _AnimatedStepProgressState();
+}
+
+class _AnimatedStepProgressState extends State<_AnimatedStepProgress>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late Animation<double> _animation = AlwaysStoppedAnimation(widget.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _animation = Tween(begin: widget.value, end: widget.value).animate(_controller);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedStepProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _animation = Tween(begin: _animation.value, end: widget.value).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+      );
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, _) => LinearProgressIndicator(
+        value: _animation.value,
+        minHeight: 6,
+        backgroundColor: widget.trackColor,
+        valueColor: const AlwaysStoppedAnimation(AppColors.primaryOrange),
+      ),
+    );
+  }
+}
+
 class _FinishedSheet extends StatelessWidget {
   const _FinishedSheet({required this.onDone});
 
@@ -219,14 +282,33 @@ class _FinishedSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: const BoxDecoration(
-              color: AppColors.secondaryGreen,
-              shape: BoxShape.circle,
+          // A rare, celebratory moment (finishing a recipe) earns a bit more
+          // delight than the app's usual restrained motion — a soft
+          // overshoot scale-in on the checkmark, once, when the sheet first
+          // appears. Same controlled-overshoot approach as the splash
+          // logo's entrance (a short TweenSequence, not a bouncy curve).
+          TweenAnimationBuilder<double>(
+            tween: TweenSequence<double>([
+              TweenSequenceItem(
+                tween: Tween(begin: 0.5, end: 1.08).chain(CurveTween(curve: Curves.easeOutCubic)),
+                weight: 70,
+              ),
+              TweenSequenceItem(
+                tween: Tween(begin: 1.08, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+                weight: 30,
+              ),
+            ]),
+            duration: const Duration(milliseconds: 420),
+            builder: (context, value, child) => Transform.scale(scale: value, child: child),
+            child: Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: AppColors.secondaryGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
             ),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text('Bon appétit!', style: theme.textTheme.headlineLarge),

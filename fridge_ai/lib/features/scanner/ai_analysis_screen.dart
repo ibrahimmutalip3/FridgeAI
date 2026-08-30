@@ -85,31 +85,43 @@ class _AiAnalysisScreenState extends ConsumerState<AiAnalysisScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    if (showFailure)
-                      EmptyState(
-                        icon: Icons.search_off_rounded,
-                        title: 'Couldn\u2019t recognize that',
-                        message: flowState.errorMessage ??
-                            'I couldn\u2019t identify any food in that photo. Try a clearer, well-lit shot.',
-                        actionLabel: 'Try Again',
-                        onAction: _retry,
-                      )
-                    else
-                      Column(
-                        children: [
-                          Text(
-                            'AI is identifying your food\u2026',
-                            style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'This usually takes a few seconds.',
-                            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                    // The failure state replaces the "AI is thinking" copy
+                    // entirely (different icon, different message, an
+                    // action button) — a cross-fade keeps that swap from
+                    // reading as a jarring content pop.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      child: showFailure
+                          ? EmptyState(
+                              key: const ValueKey('failure'),
+                              icon: Icons.search_off_rounded,
+                              title: 'Couldn\u2019t recognize that',
+                              message: flowState.errorMessage ??
+                                  'I couldn\u2019t identify any food in that photo. Try a clearer, well-lit shot.',
+                              actionLabel: 'Try Again',
+                              onAction: _retry,
+                            )
+                          : Column(
+                              key: const ValueKey('analyzing'),
+                              children: [
+                                Text(
+                                  'AI is identifying your food\u2026',
+                                  style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'This usually takes a few seconds.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -119,9 +131,10 @@ class _AiAnalysisScreenState extends ConsumerState<AiAnalysisScreen> {
                 padding: const EdgeInsets.all(AppSpacing.xl),
                 child: TextButton(
                   onPressed: () => context.pop(),
-                  child: const Text(
+                  style: TextButton.styleFrom(foregroundColor: AppColors.primaryOrange),
+                  child: Text(
                     'Scan a different photo',
-                    style: TextStyle(color: AppColors.primaryOrange),
+                    style: theme.textTheme.labelLarge?.copyWith(color: AppColors.primaryOrange),
                   ),
                 ),
               ),

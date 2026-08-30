@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/badges.dart';
+import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/fallback_image.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../models/cooking_step.dart';
@@ -56,10 +58,10 @@ class _RecipeDetailsScreenState extends ConsumerState<RecipeDetailsScreen> {
             actions: [
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: _CircleButton(
-                  icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  iconColor: isFavorite ? AppColors.lightDanger : null,
+                child: _FavoriteButton(
+                  isFavorite: isFavorite,
                   onTap: () async {
+                    HapticFeedback.lightImpact();
                     await favoritesController.toggle(recipe);
                     setState(() {});
                   },
@@ -83,53 +85,85 @@ class _RecipeDetailsScreenState extends ConsumerState<RecipeDetailsScreen> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 140),
             sliver: SliverList(
+              // A light, four-beat stagger across whole sections (title,
+              // info pills, ingredients, instructions) rather than one per
+              // line — the page transition already carries most of the
+              // "arrival" motion, so this just keeps content from popping
+              // in all at once underneath it.
               delegate: SliverChildListDelegate([
-                Text(recipe.title, style: theme.textTheme.displayMedium),
-                const SizedBox(height: AppSpacing.sm),
-                if (recipe.description.isNotEmpty) ...[
-                  Text(recipe.description, style: theme.textTheme.bodyLarge),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    DifficultyBadge(difficulty: recipe.difficulty),
-                    InfoPill(icon: Icons.timer_outlined, label: '${recipe.cookingTimeMinutes} min'),
-                    InfoPill(icon: Icons.groups_2_outlined, label: '${recipe.servings} servings'),
-                    MatchBadge(percentage: recipe.matchPercentage),
-                  ],
+                EntranceFade(
+                  index: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(recipe.title, style: theme.textTheme.displayMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (recipe.description.isNotEmpty) ...[
+                        Text(recipe.description, style: theme.textTheme.bodyLarge),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                    ],
+                  ),
+                ),
+                EntranceFade(
+                  index: 1,
+                  child: Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      DifficultyBadge(difficulty: recipe.difficulty),
+                      InfoPill(icon: Icons.timer_outlined, label: '${recipe.cookingTimeMinutes} min'),
+                      InfoPill(icon: Icons.groups_2_outlined, label: '${recipe.servings} servings'),
+                      MatchBadge(percentage: recipe.matchPercentage),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                Text('Ingredients', style: theme.textTheme.headlineSmall),
-                const SizedBox(height: AppSpacing.sm),
-                if (recipe.availableIngredients.isNotEmpty) ...[
-                  Text(
-                    '\u2713 Already have',
-                    style: theme.textTheme.titleSmall?.copyWith(color: AppColors.secondaryGreen),
+                EntranceFade(
+                  index: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ingredients', style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (recipe.availableIngredients.isNotEmpty) ...[
+                        Text(
+                          '\u2713 Already have',
+                          style: theme.textTheme.titleSmall?.copyWith(color: AppColors.secondaryGreen),
+                        ),
+                        const SizedBox(height: 6),
+                        ...recipe.availableIngredients.map(
+                          (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: true),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                      if (recipe.missingIngredients.isNotEmpty) ...[
+                        Text(
+                          'Need to buy',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ...recipe.missingIngredients.map(
+                          (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: false),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  ...recipe.availableIngredients.map(
-                    (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: true),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-                if (recipe.missingIngredients.isNotEmpty) ...[
-                  Text(
-                    'Need to buy',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  ...recipe.missingIngredients.map(
-                    (i) => _IngredientRow(name: i.name, quantity: i.quantity, available: false),
-                  ),
-                ],
+                ),
                 const SizedBox(height: AppSpacing.xl),
-                Text('Instructions', style: theme.textTheme.headlineSmall),
-                const SizedBox(height: AppSpacing.sm),
-                ...recipe.steps.map((step) => _StepRow(step: step)),
+                EntranceFade(
+                  index: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Instructions', style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      ...recipe.steps.map((step) => _StepRow(step: step)),
+                    ],
+                  ),
+                ),
               ]),
             ),
           ),
@@ -171,6 +205,61 @@ class _CircleButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.onSurface),
+        ),
+      ),
+    );
+  }
+}
+
+/// The recipe-details favorite toggle — a circular button matching
+/// [_CircleButton]'s chrome, but with its own brief overshoot scale pop on
+/// toggle (rather than [_CircleButton]'s plain tap) since favoriting is a
+/// meaningful, infrequent action worth a touch more delight than a generic
+/// icon button.
+class _FavoriteButton extends StatefulWidget {
+  const _FavoriteButton({required this.isFavorite, required this.onTap});
+
+  final bool isFavorite;
+  final VoidCallback onTap;
+
+  @override
+  State<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends State<_FavoriteButton> {
+  bool _popped = false;
+
+  Future<void> _handleTap() async {
+    widget.onTap();
+    setState(() => _popped = true);
+    await Future.delayed(const Duration(milliseconds: 160));
+    if (mounted) setState(() => _popped = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final favoriteColor = isDark ? AppColors.darkDanger : AppColors.lightDanger;
+
+    return Material(
+      color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.65),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: _handleTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: AnimatedScale(
+            scale: _popped ? 1.25 : 1.0,
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            child: Icon(
+              widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 20,
+              color: widget.isFavorite ? favoriteColor : theme.colorScheme.onSurface,
+            ),
+          ),
         ),
       ),
     );

@@ -5,7 +5,18 @@ class AppFailure implements Exception {
   final String message;
   final AppFailureType type;
 
-  const AppFailure(this.message, {this.type = AppFailureType.unknown});
+  /// True when the OS has permanently denied the permission (e.g. the user
+  /// tapped "Don't allow" on iOS, or checked "Don't ask again" on Android).
+  /// In this state calling `.request()` again is a no-op — the OS won't show
+  /// the prompt a second time — so the UI must offer a way to jump straight
+  /// to the app's system Settings page instead of retrying in-app.
+  final bool isPermanentlyDenied;
+
+  const AppFailure(
+    this.message, {
+    this.type = AppFailureType.unknown,
+    this.isPermanentlyDenied = false,
+  });
 
   factory AppFailure.noInternet() => const AppFailure(
         'No internet connection. Please check your network and try again.',
@@ -32,14 +43,20 @@ class AppFailure implements Exception {
         type: AppFailureType.invalidResponse,
       );
 
-  factory AppFailure.cameraPermissionDenied() => const AppFailure(
-        'Camera access is needed to scan your food. You can enable it in Settings.',
+  factory AppFailure.cameraPermissionDenied({bool isPermanentlyDenied = false}) => AppFailure(
+        isPermanentlyDenied
+            ? 'Camera access is off for FridgeAI. Turn it on in Settings to scan food.'
+            : 'Camera access is needed to scan your food.',
         type: AppFailureType.permission,
+        isPermanentlyDenied: isPermanentlyDenied,
       );
 
-  factory AppFailure.photoPermissionDenied() => const AppFailure(
-        'Photo library access is needed to pick an image. You can enable it in Settings.',
+  factory AppFailure.photoPermissionDenied({bool isPermanentlyDenied = false}) => AppFailure(
+        isPermanentlyDenied
+            ? 'Photo library access is off for FridgeAI. Turn it on in Settings to pick a photo.'
+            : 'Photo library access is needed to pick an image.',
         type: AppFailureType.permission,
+        isPermanentlyDenied: isPermanentlyDenied,
       );
 
   factory AppFailure.noFoodDetected() => const AppFailure(

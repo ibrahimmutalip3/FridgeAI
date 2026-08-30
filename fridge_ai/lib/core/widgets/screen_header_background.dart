@@ -177,4 +177,7 @@ class ScreenBackgrounds {
   /// Bright, colorful ingredients close-up — behind the "My Kitchen" /
   /// ingredients list header.
   static const String kitchen = 'colorful vegetables kitchen counter';
+
+  /// Warm, cozy home-cooking scene — behind the Profile screen header.
+  static const String profile = 'cozy home cooking warm kitchen';
 }

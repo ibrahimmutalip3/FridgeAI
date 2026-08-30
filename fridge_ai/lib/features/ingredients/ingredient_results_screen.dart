@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/animated_removal.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/primary_button.dart';
@@ -14,10 +15,25 @@ import '../../providers/recipe_providers.dart';
 import 'widgets/edit_ingredient_sheet.dart';
 import 'widgets/ingredient_card.dart';
 
-class IngredientResultsScreen extends ConsumerWidget {
+class IngredientResultsScreen extends ConsumerStatefulWidget {
   const IngredientResultsScreen({super.key});
 
-  Future<void> _editIngredient(BuildContext context, WidgetRef ref, Ingredient ingredient) async {
+  @override
+  ConsumerState<IngredientResultsScreen> createState() => _IngredientResultsScreenState();
+}
+
+class _IngredientResultsScreenState extends ConsumerState<IngredientResultsScreen> {
+  // One removal-animation key per ingredient id, so tapping delete can
+  // trigger that specific card's exit animation before the ingredient is
+  // actually removed from state. Entries are pruned as ingredients leave
+  // the draft so this never grows unbounded across a long session.
+  final _removalKeys = <String, GlobalKey<AnimatedRemovalState>>{};
+
+  GlobalKey<AnimatedRemovalState> _keyFor(String id) {
+    return _removalKeys.putIfAbsent(id, () => GlobalKey<AnimatedRemovalState>());
+  }
+
+  Future<void> _editIngredient(BuildContext context, Ingredient ingredient) async {
     final result = await showModalBottomSheet<Ingredient>(
       context: context,
       isScrollControlled: true,
@@ -29,7 +45,7 @@ class IngredientResultsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _addIngredient(BuildContext context, WidgetRef ref) async {
+  Future<void> _addIngredient(BuildContext context) async {
     final result = await showModalBottomSheet<Ingredient>(
       context: context,
       isScrollControlled: true,
@@ -41,7 +57,20 @@ class IngredientResultsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmAndFindRecipes(BuildContext context, WidgetRef ref) async {
+  Future<void> _removeIngredient(String id) async {
+    // Play the exit animation first, then actually mutate state — the
+    // key's currentState may already be gone if the list rebuilt for an
+    // unrelated reason, in which case we fall back to an instant removal.
+    final state = _removalKeys[id]?.currentState;
+    _removalKeys.remove(id);
+    if (state != null) {
+      await state.remove();
+    } else {
+      ref.read(scanDraftProvider.notifier).remove(id);
+    }
+  }
+
+  Future<void> _confirmAndFindRecipes(BuildContext context) async {
     final draft = ref.read(scanDraftProvider);
     if (draft.isEmpty) return;
 
@@ -54,7 +83,7 @@ class IngredientResultsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final draft = ref.watch(scanDraftProvider);
 
     return Scaffold(
@@ -88,7 +117,7 @@ class IngredientResultsScreen extends ConsumerWidget {
                         title: 'No ingredients here yet',
                         message: 'Add an ingredient manually, or head back and rescan.',
                         actionLabel: 'Add Ingredient',
-                        onAction: () => _addIngredient(context, ref),
+                        onAction: () => _addIngredient(context),
                       ),
                     ),
                   )
@@ -105,10 +134,14 @@ class IngredientResultsScreen extends ConsumerWidget {
                       final ingredient = draft[index];
                       return EntranceFade(
                         index: index,
-                        child: IngredientCard(
-                          ingredient: ingredient,
-                          onEdit: () => _editIngredient(context, ref, ingredient),
-                          onDelete: () => ref.read(scanDraftProvider.notifier).remove(ingredient.id),
+                        child: AnimatedRemoval(
+                          key: _keyFor(ingredient.id),
+                          onRemoved: () => ref.read(scanDraftProvider.notifier).remove(ingredient.id),
+                          child: IngredientCard(
+                            ingredient: ingredient,
+                            onEdit: () => _editIngredient(context, ingredient),
+                            onDelete: () => _removeIngredient(ingredient.id),
+                          ),
                         ),
                       );
                     },
@@ -126,7 +159,7 @@ class IngredientResultsScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _addIngredient(context, ref),
+                      onPressed: () => _addIngredient(context),
                       icon: const Icon(Icons.add_rounded, size: 20),
                       label: const Text('Add ingredient'),
                     ),
@@ -145,7 +178,7 @@ class IngredientResultsScreen extends ConsumerWidget {
               PrimaryButton(
                 label: 'Find Recipes',
                 icon: Icons.auto_awesome_rounded,
-                onPressed: draft.isEmpty ? null : () => _confirmAndFindRecipes(context, ref),
+                onPressed: draft.isEmpty ? null : () => _confirmAndFindRecipes(context),
               ),
             ],
           ),

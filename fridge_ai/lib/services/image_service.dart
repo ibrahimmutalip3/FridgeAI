@@ -18,13 +18,26 @@ class ImageService {
 
   /// Requests camera permission, throwing [AppFailure.cameraPermissionDenied]
   /// if denied. Returns normally if granted.
+  ///
+  /// If the permission was already permanently denied (iOS: user tapped
+  /// "Don't Allow" once before; Android: "Don't ask again"), `.request()`
+  /// would silently return `denied` again without showing any system
+  /// prompt — so we short-circuit and surface `isPermanentlyDenied: true`
+  /// right away, which tells the UI to offer a link to system Settings
+  /// instead of retrying in-app.
   Future<void> ensureCameraPermission() async {
     final status = await Permission.camera.status;
     if (status.isGranted) return;
 
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      throw AppFailure.cameraPermissionDenied(isPermanentlyDenied: true);
+    }
+
     final result = await Permission.camera.request();
     if (!result.isGranted) {
-      throw AppFailure.cameraPermissionDenied();
+      throw AppFailure.cameraPermissionDenied(
+        isPermanentlyDenied: result.isPermanentlyDenied || result.isRestricted,
+      );
     }
   }
 
@@ -36,11 +49,23 @@ class ImageService {
     final status = await permission.status;
     if (status.isGranted || status.isLimited) return;
 
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      throw AppFailure.photoPermissionDenied(isPermanentlyDenied: true);
+    }
+
     final result = await permission.request();
     if (!result.isGranted && !result.isLimited) {
-      throw AppFailure.photoPermissionDenied();
+      throw AppFailure.photoPermissionDenied(
+        isPermanentlyDenied: result.isPermanentlyDenied || result.isRestricted,
+      );
     }
   }
+
+  /// Opens the app's page in the OS Settings app, so the user can flip a
+  /// permission that was permanently denied. This is the only way to
+  /// recover from a permanently-denied state — the in-app request dialog
+  /// won't be shown again by the OS.
+  Future<bool> openSystemSettings() => openAppSettings();
 
   /// Picks an image from the gallery. Returns null if the user cancels.
   Future<File?> pickFromGallery() async {

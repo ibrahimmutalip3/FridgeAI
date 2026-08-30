@@ -3,6 +3,21 @@ import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
 
+/// How urgently an ingredient's [Ingredient.expirationDate] should be
+/// surfaced in the UI. Deliberately coarse (three buckets) so the visual
+/// treatment stays calm — this drives a small pill/label, not a full
+/// traffic-light system.
+enum FreshnessUrgency {
+  /// No expiration date set, or it's comfortably far away (> 2 days).
+  none,
+
+  /// Expires today or tomorrow — worth a gentle nudge.
+  soon,
+
+  /// Already expired.
+  expired,
+}
+
 /// Broad category used to organize the user's pantry (My Kitchen screen).
 enum IngredientCategory {
   vegetables,
@@ -73,6 +88,43 @@ class Ingredient extends Equatable {
     this.imageQuery,
   })  : id = id ?? _uuid.v4(),
         addedAt = addedAt ?? DateTime.now();
+
+  /// Whole-day difference between [expirationDate] and today (negative if
+  /// already past). Null when no expiration date is set.
+  int? get daysUntilExpiration {
+    final expiration = expirationDate;
+    if (expiration == null) return null;
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    final startOfExpiration = DateTime(expiration.year, expiration.month, expiration.day);
+    return startOfExpiration.difference(startOfToday).inDays;
+  }
+
+  /// Coarse urgency bucket derived from [daysUntilExpiration], used to
+  /// decide whether/how to show a freshness hint on ingredient cards.
+  FreshnessUrgency get freshnessUrgency {
+    final days = daysUntilExpiration;
+    if (days == null) return FreshnessUrgency.none;
+    if (days < 0) return FreshnessUrgency.expired;
+    if (days <= 1) return FreshnessUrgency.soon;
+    return FreshnessUrgency.none;
+  }
+
+  /// Short, human-readable label for the current [freshnessUrgency] (e.g.
+  /// "Expired", "Expires today", "Expires tomorrow"). Empty when there's
+  /// nothing worth showing.
+  String get freshnessLabel {
+    final days = daysUntilExpiration;
+    if (days == null) return '';
+    switch (freshnessUrgency) {
+      case FreshnessUrgency.expired:
+        return days == -1 ? 'Expired yesterday' : 'Expired';
+      case FreshnessUrgency.soon:
+        return days == 0 ? 'Expires today' : 'Expires tomorrow';
+      case FreshnessUrgency.none:
+        return '';
+    }
+  }
 
   Ingredient copyWith({
     String? name,

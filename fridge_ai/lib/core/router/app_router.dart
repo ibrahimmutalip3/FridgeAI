@@ -19,6 +19,7 @@ import '../../features/shell/app_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../models/recipe.dart';
 import '../../providers/preferences_providers.dart';
+import 'app_page_transitions.dart';
 import 'app_routes.dart';
 
 /// A [Listenable] that notifies GoRouter to re-evaluate `redirect` whenever
@@ -80,17 +81,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // A soft cross-fade rather than the platform's default slide — this
         // route is most often entered right as the splash morphs out, and a
         // fade keeps that a single continuous motion instead of a hard cut.
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const OnboardingScreen(),
-          transitionDuration: const Duration(milliseconds: 420),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-              child: child,
-            );
-          },
-        ),
+        pageBuilder: (context, state) =>
+            AppPageTransitions.fade(state: state, child: const OnboardingScreen()),
       ),
 
       // Bottom-navigation shell: Home / Recipes / Kitchen / Profile.
@@ -137,37 +129,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // Scan flow — pushed full-screen on top of the shell.
+      // The scanner itself is a modal tool takeover (slide up from the
+      // bottom); the AI analysis → results steps are the app's key "AI
+      // moment" and use the more expressive reveal transition so the
+      // experience of watching the app understand your fridge actually
+      // feels like something happening, not just another page push.
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.scanner,
-        builder: (context, state) => const ScannerScreen(),
+        pageBuilder: (context, state) =>
+            AppPageTransitions.modalUp(state: state, child: const ScannerScreen()),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.aiAnalysis,
-        builder: (context, state) => AiAnalysisScreen(imageFile: state.extra as File),
+        pageBuilder: (context, state) => AppPageTransitions.reveal(
+          state: state,
+          child: AiAnalysisScreen(imageFile: state.extra as File),
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.ingredientResults,
-        builder: (context, state) => const IngredientResultsScreen(),
+        pageBuilder: (context, state) =>
+            AppPageTransitions.reveal(state: state, child: const IngredientResultsScreen()),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.recipeResults,
-        builder: (context, state) => const RecipeResultsScreen(),
+        pageBuilder: (context, state) =>
+            AppPageTransitions.reveal(state: state, child: const RecipeResultsScreen()),
       ),
 
-      // Recipe details / cooking mode.
+      // Recipe details / cooking mode — routine forward navigation.
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.recipeDetails,
-        builder: (context, state) => RecipeDetailsScreen(recipe: state.extra as Recipe),
+        pageBuilder: (context, state) => AppPageTransitions.forward(
+          state: state,
+          child: RecipeDetailsScreen(recipe: state.extra as Recipe),
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.cookingMode,
-        builder: (context, state) => CookingModeScreen(recipe: state.extra as Recipe),
+        pageBuilder: (context, state) => AppPageTransitions.modalUp(
+          state: state,
+          child: CookingModeScreen(recipe: state.extra as Recipe),
+        ),
       ),
     ],
     errorBuilder: (context, state) => const _RouteErrorScreen(),

@@ -54,6 +54,12 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
     final hasAnyContent =
         basedOnIngredients.isNotEmpty || recentlyViewed.isNotEmpty || favorites.isNotEmpty;
 
+    // Running index across every section below, so the whole screen reads
+    // as one continuous stagger rather than each section restarting the
+    // entrance animation from item 0 (same fix applied to My Kitchen's
+    // category sections).
+    var runningIndex = 0;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Recipes')),
       body: SafeArea(
@@ -95,42 +101,67 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  if (!hasAnyContent)
-                    EmptyState(
-                      icon: Icons.menu_book_outlined,
-                      title: 'No recipes yet',
-                      message: pantry.isEmpty
-                          ? 'Scan your fridge to get personalized recipe ideas.'
-                          : 'Generate recipes from your ingredients to see them here.',
-                      actionLabel: pantry.isEmpty ? 'Scan Food' : 'Find Recipes',
-                      onAction: () {
-                        if (pantry.isEmpty) {
-                          context.push(AppRoutes.scanner);
-                        } else {
-                          ref.read(recipeGenerationProvider.notifier).generate(pantry);
-                          context.push(AppRoutes.recipeResults);
-                        }
-                      },
-                    )
-                  else ...[
-                    if (basedOnIngredients.isNotEmpty) ...[
-                      const SectionHeader(title: 'Based on your ingredients'),
-                      const SizedBox(height: AppSpacing.sm),
-                      _RecipeList(recipes: basedOnIngredients),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    if (favorites.isNotEmpty) ...[
-                      const SectionHeader(title: 'Favorites'),
-                      const SizedBox(height: AppSpacing.sm),
-                      _RecipeList(recipes: favorites),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    if (recentlyViewed.isNotEmpty) ...[
-                      const SectionHeader(title: 'Recently viewed'),
-                      const SizedBox(height: AppSpacing.sm),
-                      _RecipeList(recipes: recentlyViewed),
-                    ],
-                  ],
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) =>
+                        FadeTransition(opacity: animation, child: child),
+                    // Keyed by content shape so switching filters/search
+                    // cross-fades to the new set instead of the list just
+                    // snapping to different cards mid-scroll.
+                    child: KeyedSubtree(
+                      key: ValueKey('$_category-$_query-$hasAnyContent'),
+                      child: !hasAnyContent
+                          ? EmptyState(
+                              icon: Icons.menu_book_outlined,
+                              title: 'No recipes yet',
+                              message: pantry.isEmpty
+                                  ? 'Scan your fridge to get personalized recipe ideas.'
+                                  : 'Generate recipes from your ingredients to see them here.',
+                              actionLabel: pantry.isEmpty ? 'Scan Food' : 'Find Recipes',
+                              onAction: () {
+                                if (pantry.isEmpty) {
+                                  context.push(AppRoutes.scanner);
+                                } else {
+                                  ref.read(recipeGenerationProvider.notifier).generate(pantry);
+                                  context.push(AppRoutes.recipeResults);
+                                }
+                              },
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (basedOnIngredients.isNotEmpty) ...[
+                                  const SectionHeader(title: 'Based on your ingredients'),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  _RecipeList(
+                                    recipes: basedOnIngredients,
+                                    startIndex: runningIndex,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+                                ],
+                                if (favorites.isNotEmpty) ...[
+                                  const SectionHeader(title: 'Favorites'),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  _RecipeList(
+                                    recipes: favorites,
+                                    startIndex: runningIndex += basedOnIngredients.length,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+                                ],
+                                if (recentlyViewed.isNotEmpty) ...[
+                                  const SectionHeader(title: 'Recently viewed'),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  _RecipeList(
+                                    recipes: recentlyViewed,
+                                    startIndex: runningIndex += favorites.length,
+                                  ),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ),
                 ]),
               ),
             ),
@@ -142,9 +173,10 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
 }
 
 class _RecipeList extends StatelessWidget {
-  const _RecipeList({required this.recipes});
+  const _RecipeList({required this.recipes, this.startIndex = 0});
 
   final List<Recipe> recipes;
+  final int startIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +186,7 @@ class _RecipeList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: EntranceFade(
-              index: i,
+              index: startIndex + i,
               child: RecipeCard(
                 recipe: recipes[i],
                 onTap: () => context.push(AppRoutes.recipeDetails, extra: recipes[i]),

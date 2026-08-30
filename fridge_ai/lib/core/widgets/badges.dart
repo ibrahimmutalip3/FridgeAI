@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/ingredient.dart';
 import '../../models/recipe.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -59,6 +60,52 @@ class MatchBadge extends StatelessWidget {
             '$percentage% available',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: AppColors.secondaryGreen,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small pill shown on ingredient cards/chips when [Ingredient.expirationDate]
+/// is soon or already past — reuses the app's existing danger color (mapped
+/// per-theme, matching the pattern already used by [ErrorBanner] and the
+/// favorite-heart icon) so no new colors enter the palette.
+class FreshnessBadge extends StatelessWidget {
+  const FreshnessBadge({super.key, required this.ingredient, this.dense = false});
+
+  final Ingredient ingredient;
+
+  /// Slightly tighter padding/text for the compact [IngredientChip] layout.
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final urgency = ingredient.freshnessUrgency;
+    if (urgency == FreshnessUrgency.none) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = urgency == FreshnessUrgency.expired
+        ? (isDark ? AppColors.darkDanger : AppColors.lightDanger)
+        : AppColors.mediumOrange;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: dense ? 7 : 10, vertical: dense ? 3 : 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.2 : 0.14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.schedule_rounded, size: dense ? 11 : 13, color: color),
+          const SizedBox(width: 3),
+          Text(
+            ingredient.freshnessLabel,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontSize: dense ? 10 : null,
                 ),
           ),
         ],
