@@ -8,15 +8,29 @@ import '../../core/theme/app_spacing.dart';
 /// Bottom-navigation shell: Home, Recipes, (floating) Scan, Profile.
 /// The Scan action is visually emphasized as a raised rounded floating
 /// button per the design spec, sitting centered over the nav bar.
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  // Tracks the previous tab so the cross-fade can slide in the direction
+  // that matches how far the user moved across the bottom bar (e.g. Home
+  // -> Profile drifts right-to-left, Profile -> Home drifts the opposite
+  // way), rather than every switch using the same generic motion.
+  int _previousIndex = 0;
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    if (index != widget.navigationShell.currentIndex) {
+      _previousIndex = widget.navigationShell.currentIndex;
+    }
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
@@ -24,10 +38,43 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final currentIndex = widget.navigationShell.currentIndex;
+    final movingForward = currentIndex >= _previousIndex;
 
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          // Only the incoming tab should slide in from the side; the
+          // outgoing one simply fades out in place, which reads as a much
+          // cleaner "switch" than both tabs sliding past each other.
+          final isIncoming = child.key == ValueKey(currentIndex);
+          final beginOffset = isIncoming
+              ? Offset(movingForward ? 0.06 : -0.06, 0)
+              : Offset.zero;
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.topLeft,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        child: KeyedSubtree(
+          key: ValueKey(currentIndex),
+          child: widget.navigationShell,
+        ),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(top: AppSpacing.lg),
@@ -58,14 +105,14 @@ class AppShell extends StatelessWidget {
               icon: Icons.home_rounded,
               outlinedIcon: Icons.home_outlined,
               label: 'Home',
-              selected: navigationShell.currentIndex == 0,
+              selected: currentIndex == 0,
               onTap: () => _goBranch(0),
             ),
             _NavItem(
               icon: Icons.menu_book_rounded,
               outlinedIcon: Icons.menu_book_outlined,
               label: 'Recipes',
-              selected: navigationShell.currentIndex == 1,
+              selected: currentIndex == 1,
               onTap: () => _goBranch(1),
             ),
             const SizedBox(width: 56), // space for the docked Scan FAB
@@ -73,14 +120,14 @@ class AppShell extends StatelessWidget {
               icon: Icons.kitchen_rounded,
               outlinedIcon: Icons.kitchen_outlined,
               label: 'Kitchen',
-              selected: navigationShell.currentIndex == 2,
+              selected: currentIndex == 2,
               onTap: () => _goBranch(2),
             ),
             _NavItem(
               icon: Icons.person_rounded,
               outlinedIcon: Icons.person_outline_rounded,
               label: 'Profile',
-              selected: navigationShell.currentIndex == 3,
+              selected: currentIndex == 3,
               onTap: () => _goBranch(3),
             ),
           ],

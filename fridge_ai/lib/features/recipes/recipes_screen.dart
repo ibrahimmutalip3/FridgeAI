@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entrance_fade.dart';
 import '../../core/widgets/liquid_glass_status_bar.dart';
+import '../../core/widgets/screen_header_background.dart';
 import '../../core/widgets/section_header.dart';
 import '../../models/recipe.dart';
 import '../../providers/pantry_providers.dart';
@@ -69,113 +70,132 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: const LiquidGlassAppBar(title: Text('Recipes')),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              topContentPadding + AppSpacing.sm,
-              AppSpacing.lg,
-              140,
-            ),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: const InputDecoration(
-                    hintText: 'Search recipes',
-                    prefixIcon: Icon(Icons.search_rounded),
-                  ),
+      appBar: LiquidGlassAppBar(
+        title: Text(
+          'Recipes',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+        ),
+        foregroundColor: Colors.white,
+      ),
+      body: Stack(
+        children: [
+          // Real, static theme photo behind the app bar, fading into the
+          // scaffold background further down — same treatment as Home, My
+          // Kitchen, and Profile.
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ScreenHeaderBackground(query: ScreenBackgrounds.recipes, height: 260),
+          ),
+          CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  topContentPadding + AppSpacing.sm,
+                  AppSpacing.lg,
+                  140,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _CategoryChip(
-                        label: 'All',
-                        selected: _category == null,
-                        onTap: () => setState(() => _category = null),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => _query = value),
+                      decoration: const InputDecoration(
+                        hintText: 'Search recipes',
+                        prefixIcon: Icon(Icons.search_rounded),
                       ),
-                      for (final tag in RecipeTag.values)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: _CategoryChip(
-                            label: tag.label,
-                            selected: _category == tag,
-                            onTap: () => setState(() => _category = tag),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      height: 40,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _CategoryChip(
+                            label: 'All',
+                            selected: _category == null,
+                            onTap: () => setState(() => _category = null),
                           ),
-                        ),
-                    ],
-                  ),
+                          for (final tag in RecipeTag.values)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: _CategoryChip(
+                                label: tag.label,
+                                selected: _category == tag,
+                                onTap: () => setState(() => _category = tag),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      // Keyed by content shape so switching filters/search
+                      // cross-fades to the new set instead of the list just
+                      // snapping to different cards mid-scroll.
+                      child: KeyedSubtree(
+                        key: ValueKey('$_category-$_query-$hasAnyContent'),
+                        child: !hasAnyContent
+                            ? EmptyState(
+                                icon: Icons.menu_book_outlined,
+                                title: 'No recipes yet',
+                                message: pantry.isEmpty
+                                    ? 'Scan your fridge to get personalized recipe ideas.'
+                                    : 'Generate recipes from your ingredients to see them here.',
+                                actionLabel: pantry.isEmpty ? 'Scan Food' : 'Find Recipes',
+                                onAction: () {
+                                  if (pantry.isEmpty) {
+                                    context.push(AppRoutes.scanner);
+                                  } else {
+                                    ref.read(recipeGenerationProvider.notifier).generate(pantry);
+                                    context.push(AppRoutes.recipeResults);
+                                  }
+                                },
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (basedOnIngredients.isNotEmpty) ...[
+                                    const SectionHeader(title: 'Based on your ingredients'),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    _RecipeList(
+                                      recipes: basedOnIngredients,
+                                      startIndex: runningIndex,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xl),
+                                  ],
+                                  if (favorites.isNotEmpty) ...[
+                                    const SectionHeader(title: 'Favorites'),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    _RecipeList(
+                                      recipes: favorites,
+                                      startIndex: runningIndex += basedOnIngredients.length,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xl),
+                                  ],
+                                  if (recentlyViewed.isNotEmpty) ...[
+                                    const SectionHeader(title: 'Recently viewed'),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    _RecipeList(
+                                      recipes: recentlyViewed,
+                                      startIndex: runningIndex += favorites.length,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      ),
+                    ),
+                  ]),
                 ),
-                const SizedBox(height: AppSpacing.xl),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) =>
-                      FadeTransition(opacity: animation, child: child),
-                  // Keyed by content shape so switching filters/search
-                  // cross-fades to the new set instead of the list just
-                  // snapping to different cards mid-scroll.
-                  child: KeyedSubtree(
-                    key: ValueKey('$_category-$_query-$hasAnyContent'),
-                    child: !hasAnyContent
-                        ? EmptyState(
-                            icon: Icons.menu_book_outlined,
-                            title: 'No recipes yet',
-                            message: pantry.isEmpty
-                                ? 'Scan your fridge to get personalized recipe ideas.'
-                                : 'Generate recipes from your ingredients to see them here.',
-                            actionLabel: pantry.isEmpty ? 'Scan Food' : 'Find Recipes',
-                            onAction: () {
-                              if (pantry.isEmpty) {
-                                context.push(AppRoutes.scanner);
-                              } else {
-                                ref.read(recipeGenerationProvider.notifier).generate(pantry);
-                                context.push(AppRoutes.recipeResults);
-                              }
-                            },
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (basedOnIngredients.isNotEmpty) ...[
-                                const SectionHeader(title: 'Based on your ingredients'),
-                                const SizedBox(height: AppSpacing.sm),
-                                _RecipeList(
-                                  recipes: basedOnIngredients,
-                                  startIndex: runningIndex,
-                                ),
-                                const SizedBox(height: AppSpacing.xl),
-                              ],
-                              if (favorites.isNotEmpty) ...[
-                                const SectionHeader(title: 'Favorites'),
-                                const SizedBox(height: AppSpacing.sm),
-                                _RecipeList(
-                                  recipes: favorites,
-                                  startIndex: runningIndex += basedOnIngredients.length,
-                                ),
-                                const SizedBox(height: AppSpacing.xl),
-                              ],
-                              if (recentlyViewed.isNotEmpty) ...[
-                                const SectionHeader(title: 'Recently viewed'),
-                                const SizedBox(height: AppSpacing.sm),
-                                _RecipeList(
-                                  recipes: recentlyViewed,
-                                  startIndex: runningIndex += favorites.length,
-                                ),
-                              ],
-                            ],
-                          ),
-                  ),
-                ),
-              ]),
-            ),
+              ),
+            ],
           ),
         ],
       ),

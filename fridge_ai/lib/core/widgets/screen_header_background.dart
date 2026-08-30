@@ -180,4 +180,8 @@ class ScreenBackgrounds {
 
   /// Warm, cozy home-cooking scene — behind the Profile screen header.
   static const String profile = 'cozy home cooking warm kitchen';
+
+  /// Open cookbook / recipe styling flat lay — behind the Recipes screen
+  /// header.
+  static const String recipes = 'cookbook recipe flat lay';
 }

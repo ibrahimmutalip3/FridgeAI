@@ -319,6 +319,7 @@ class _AppearanceSelector extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           ),
           child: Stack(
+            alignment: Alignment.center,
             children: [
               AnimatedAlign(
                 duration: const Duration(milliseconds: 220),
@@ -345,42 +346,45 @@ class _AppearanceSelector extends StatelessWidget {
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  for (final option in _options)
-                    SizedBox(
-                      width: segmentWidth,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm - 2),
-                        onTap: () => onChanged(option.mode),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              option.icon,
-                              size: 16,
-                              color: option.mode == selected
-                                  ? AppColors.primaryOrangeDark
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                option.label,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: option.mode == selected
-                                      ? AppColors.primaryOrangeDark
-                                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                  fontWeight: option.mode == selected ? FontWeight.w700 : FontWeight.w600,
+              Positioned.fill(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final option in _options)
+                      SizedBox(
+                        width: segmentWidth,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm - 2),
+                          onTap: () => onChanged(option.mode),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                option.icon,
+                                size: 16,
+                                color: option.mode == selected
+                                    ? AppColors.primaryOrangeDark
+                                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  option.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: option.mode == selected
+                                        ? AppColors.primaryOrangeDark
+                                        : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    fontWeight: option.mode == selected ? FontWeight.w700 : FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -447,7 +451,7 @@ class _TagsRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, color: AppColors.primaryOrangeDark, size: 22),
             const SizedBox(width: AppSpacing.md),
@@ -456,17 +460,17 @@ class _TagsRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: Text(label, style: theme.textTheme.bodyLarge),
                   ),
                   if (tags.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: 2),
                       child: Text('None set', style: theme.textTheme.bodySmall),
                     )
                   else
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 2),
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -487,12 +491,9 @@ class _TagsRow extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-              ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
             ),
           ],
         ),
