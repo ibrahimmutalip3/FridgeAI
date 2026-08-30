@@ -64,7 +64,7 @@ jobs:
 
       # 5b. Sanity check: make sure flutter_tools actually wrote the plugin
       # registrant files that Runner.xcodeproj compiles
-      # (ios/Flutter/GeneratedPluginRegistrant.h + .m, wired in via
+      # (ios/Runner/GeneratedPluginRegistrant.h + .m, wired in via
       # Runner-Bridging-Header.h). This is a plain existence check, not a
       # workaround - if these are ever missing after `flutter pub get` it
       # means the ios/ project itself is misconfigured (e.g. no plugins with
@@ -74,8 +74,8 @@ jobs:
       - name: Ensure plugin registrant exists
         working-directory: fridge_ai
         run: |
-          HEADER="ios/Flutter/GeneratedPluginRegistrant.h"
-          IMPL="ios/Flutter/GeneratedPluginRegistrant.m"
+          HEADER="ios/Runner/GeneratedPluginRegistrant.h"
+          IMPL="ios/Runner/GeneratedPluginRegistrant.m"
 
           if [ -f "$HEADER" ] && [ -f "$IMPL" ]; then
             echo "OK: $HEADER and $IMPL present after 'flutter pub get'."
