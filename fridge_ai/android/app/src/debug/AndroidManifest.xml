@@ -1,5 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The INTERNET permission is required for profile/development builds
-         to allow the Flutter tool to communicate with the app. -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-</manifest>
