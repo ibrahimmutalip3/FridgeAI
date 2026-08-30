@@ -193,11 +193,10 @@ class _RecipeDetailsScreenState extends ConsumerState<RecipeDetailsScreen> {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.icon, required this.onTap, this.iconColor});
+  const _CircleButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
-  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +210,7 @@ class _CircleButton extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.onSurface),
+          child: Icon(icon, size: 20, color: theme.colorScheme.onSurface),
         ),
       ),
     );

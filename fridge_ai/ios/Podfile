@@ -56,9 +56,15 @@ post_install do |installer|
     # no system prompt ever appeared, so iOS never even created a
     # Camera/Photos row under Settings > FridgeAI for the user to toggle.
     # Only enable the permissions this app actually asks for.
+    #
+    # NOTE: the whole list (including '$(inherited)') is assigned in one
+    # flat array via `||=`. Appending the new entries afterwards with `<<`
+    # instead nests them as a single sub-array element, which makes Xcode's
+    # -D flag generation choke with "Macro name must be an identifier" on
+    # every Pods target — not just this one.
     target.build_configurations.each do |config|
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << [
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
         'PERMISSION_CAMERA=1',
         'PERMISSION_PHOTOS=1',
       ]

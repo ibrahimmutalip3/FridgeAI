@@ -80,7 +80,7 @@ class RecipeCardSkeleton extends StatelessWidget {
               children: [
                 const _Bone(width: double.infinity, height: 15),
                 const SizedBox(height: 8),
-                _Bone(width: 120, height: 15),
+                const _Bone(width: 120, height: 15),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -144,9 +144,9 @@ class IngredientCardSkeleton extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              children: const [
                 _Bone(width: 140, height: 15),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 _Bone(width: 70, height: 12),
               ],
             ),
